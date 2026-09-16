@@ -9,7 +9,7 @@
 
 ### Added
 
-- 新增 `Makefile`，覆盖完整工作流：`build`、`dist`（六平台交叉编译）、`test`、`cover`、
+- 新增 `Makefile`，覆盖完整工作流：`build`、`dist`(六平台交叉编译)、`test`、`cover`、
   `vet`、`fmt`、`fmt-check`、`check`、`tidy`、`install`、`uninstall`、`clean`、
   `run`、`version`。直接执行 `make` 会列出全部目标，`make check` 一次完成
   格式检查、vet 与测试。
@@ -29,10 +29,18 @@
   防止同类遗漏再次发生。此前的「文案 key 完整性」测试无法覆盖这类问题——
   它只检查已经走 `i18n.T` 的字符串，发现不了压根没接进去的字符串。
 
+### Fixed
+
+- 仓库缺少 `internal/history`：`.gitignore` 中的 `history/` 同时匹配了
+  `internal/history/`，导致全新克隆无法构建。现已锚定到仓库根
+  (`/history/`、`/config.yaml`)。
+- `go.sum` 不完整，全新克隆会报 `missing go.sum entry for go.mod file`；
+  已用 `go mod tidy` 重新生成。
+
 ### Changed
 
-- 全项目统一使用半角括号 `()`，中文文案也不例外。维护者偏好半角写法，
-  因此源码、帮助文本与文档一律采用该形式。
+- 全项目统一使用半角括号 `()`，中文文案也不例外：维护者偏好半角写法，
+  因此源码、帮助文本与文档一律采用该形式，不再使用全角写法。
 - 公开仓库的打包细节：`LICENSE` 补上版权人，CHANGELOG 日期改为真实发布日期。
 
 ## [1.1.0] - 2026-09-16

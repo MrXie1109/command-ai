@@ -1,6 +1,7 @@
 package i18n
 
 import (
+	"fmt"
 	"go/ast"
 	"go/parser"
 	"go/token"
@@ -334,4 +335,53 @@ func chineseStringLiterals(path string, han *regexp.Regexp) ([]string, error) {
 		return true
 	})
 	return out, nil
+}
+
+// TestNoFullWidthParentheses 强制全项目使用半角括号。
+//
+// 这是维护者的个人偏好：即使是中文文案也统一用 `()`，不用全角写法。
+// 测试用转义构造全角括号，避免本文件自身触发该规则。
+func TestNoFullWidthParentheses(t *testing.T) {
+	open := "\uff08"  // 全角左括号
+	close := "\uff09" // 全角右括号
+
+	root := moduleRoot(t)
+	var offenders []string
+
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			switch info.Name() {
+			case ".git", "dist":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		switch {
+		case strings.HasSuffix(path, ".go"),
+			strings.HasSuffix(path, ".md"),
+			info.Name() == "Makefile":
+		default:
+			return nil
+		}
+		data, rerr := os.ReadFile(path)
+		if rerr != nil {
+			return rerr
+		}
+		for i, line := range strings.Split(string(data), "\n") {
+			if strings.Contains(line, open) || strings.Contains(line, close) {
+				offenders = append(offenders, fmt.Sprintf("%s:%d: %s",
+					filepath.ToSlash(path), i+1, strings.TrimSpace(line)))
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("扫描文件失败: %v", err)
+	}
+	for _, o := range offenders {
+		t.Errorf("发现全角括号，请改用半角 (): %s", o)
+	}
 }

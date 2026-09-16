@@ -30,11 +30,19 @@ This project follows [Semantic Versioning](https://semver.org/) and the
   This is the guard that the earlier key-completeness test could not provide: that test
   only checked strings already routed through `i18n.T`, not strings that never were.
 
+### Fixed
+
+- `internal/history` was missing from the repository: the `.gitignore` entry `history/`
+  also matched `internal/history/`, so a fresh clone could not build. The pattern is now
+  anchored to the repository root (`/history/`, `/config.yaml`).
+- `go.sum` was incomplete and a fresh clone failed with
+  `missing go.sum entry for go.mod file`; regenerated with `go mod tidy`.
+
 ### Changed
 
-- Project now uses half-width parentheses `()` consistently, including in Chinese text
-  where full-width `（）` is the usual convention. The maintainer prefers the half-width
-  form, so it is applied uniformly across the source, help text, and documentation.
+- Half-width parentheses `()` are now used consistently, including in Chinese text where
+  the full-width form is the usual convention. The maintainer prefers the half-width
+  style, so it is applied uniformly across source, help text, and documentation.
 - Packaging details for the public repository: `LICENSE` now names the copyright holder,
   and the changelog dates reflect the actual release date.
 
