@@ -6,6 +6,7 @@ import (
 	"go/token"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"testing"
@@ -263,4 +264,74 @@ func moduleRoot(t *testing.T) string {
 	}
 	t.Fatal("未能定位仓库根目录")
 	return ""
+}
+
+// TestNoHardcodedChineseOutsideCatalog 扫描源码，禁止在 i18n 包之外出现
+// 中文字符串字面量。
+//
+// 回归防护：曾经有若干提示（例如需求为空的报错）因为调用形式不同而漏改，
+// 在 LANG=C 下仍然输出中文。文案必须集中在 catalog 中。
+func TestNoHardcodedChineseOutsideCatalog(t *testing.T) {
+	root := moduleRoot(t)
+	han := regexp.MustCompile(`[\p{Han}\x{3000}-\x{303f}\x{ff00}-\x{ffef}]`)
+
+	var offenders []string
+	err := filepath.Walk(root, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		if info.IsDir() {
+			switch info.Name() {
+			case ".git", "dist":
+				return filepath.SkipDir
+			}
+			return nil
+		}
+		if !strings.HasSuffix(path, ".go") || strings.HasSuffix(path, "_test.go") {
+			return nil
+		}
+		// i18n 包本身是中文文案的唯一合法归属地。
+		if filepath.Base(filepath.Dir(path)) == "i18n" {
+			return nil
+		}
+		lits, lerr := chineseStringLiterals(path, han)
+		if lerr != nil {
+			return lerr
+		}
+		for _, l := range lits {
+			offenders = append(offenders, filepath.ToSlash(path)+": "+l)
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("扫描源码失败: %v", err)
+	}
+	for _, o := range offenders {
+		t.Errorf("发现硬编码中文文案（应改用 i18n.T）：%s", o)
+	}
+}
+
+// chineseStringLiterals 返回文件中所有含中文的字符串字面量（忽略注释）。
+func chineseStringLiterals(path string, han *regexp.Regexp) ([]string, error) {
+	fset := token.NewFileSet()
+	f, err := parser.ParseFile(fset, path, nil, parser.ParseComments)
+	if err != nil {
+		return nil, err
+	}
+	var out []string
+	ast.Inspect(f, func(n ast.Node) bool {
+		lit, ok := n.(*ast.BasicLit)
+		if !ok || lit.Kind != token.STRING {
+			return true
+		}
+		val, uerr := strconv.Unquote(lit.Value)
+		if uerr != nil {
+			val = lit.Value
+		}
+		if han.MatchString(val) {
+			out = append(out, lit.Value)
+		}
+		return true
+	})
+	return out, nil
 }

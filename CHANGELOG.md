@@ -5,6 +5,22 @@
 This project follows [Semantic Versioning](https://semver.org/) and the
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [1.1.1] - 2024-05-17
+
+### Fixed
+
+- Five messages were still hardcoded in Chinese and ignored the selected language, so
+  `LANG=C command-ai ""` printed `错误: 需求描述为空` instead of English. Fixed:
+  - an empty request (`cli.empty_request`)
+  - base URL validation (`cli.base_url_scheme`)
+  - empty API key (`cli.api_key_empty`)
+  - empty model name (`cli.model_empty`)
+  - an error path in the execution branch that printed a bare literal
+- Added a source-scanning test that fails the build if any string literal outside the
+  `i18n` package contains Chinese characters, so this class of omission cannot recur.
+  This is the guard that the earlier key-completeness test could not provide: that test
+  only checked strings already routed through `i18n.T`, not strings that never were.
+
 ## [1.1.0] - 2024-05-17
 
 ### Added
@@ -91,5 +107,6 @@ First stable release, covering every milestone (M1–M6) of the project specific
 - The tool provides no sandbox, allowlist, or dangerous-command filtering; the `Allow`
   confirmation before execution is the only safeguard
 
+[1.1.1]: https://github.com/command-ai/command-ai/releases/tag/v1.1.1
 [1.1.0]: https://github.com/command-ai/command-ai/releases/tag/v1.1.0
 [1.0.0]: https://github.com/command-ai/command-ai/releases/tag/v1.0.0

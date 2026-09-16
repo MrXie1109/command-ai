@@ -202,6 +202,9 @@ var catalog = map[string]entry{
 
 	// ---------- cli ----------
 	"cli.err":               {"error: %v", "错误: %v"},
+	"cli.base_url_scheme":   {"base URL must start with http:// or https://", "Base URL 需以 http:// 或 https:// 开头"},
+	"cli.api_key_empty":     {"API key must not be empty", "API Key 不能为空"},
+	"cli.model_empty":       {"model name must not be empty", "模型名不能为空"},
 	"cli.warn":              {"warning: %v", "警告: %v"},
 	"cli.usage_set":         {"usage: command-ai %s <value>", "用法: command-ai %s <值>"},
 	"cli.saved_to":          {"saved to %s", "已保存到 %s"},

@@ -20,7 +20,7 @@ import (
 )
 
 // version 是当前版本号，构建时可通过 -ldflags 覆盖。
-var version = "1.1.0"
+var version = "1.1.1"
 
 // 标准流被抽成变量，便于在测试中替换。
 var (
@@ -63,7 +63,7 @@ func run(args []string) int {
 	case "base-url":
 		return cmdSetConfig("base-url", rest, func(c *config.Config, v string) error {
 			if !strings.HasPrefix(v, "http://") && !strings.HasPrefix(v, "https://") {
-				return fmt.Errorf("Base URL 需以 http:// 或 https:// 开头")
+				return errors.New(i18n.T("cli.base_url_scheme"))
 			}
 			c.BaseURL = strings.TrimRight(v, "/")
 			return nil
@@ -71,7 +71,7 @@ func run(args []string) int {
 	case "api-key":
 		return cmdSetConfig("api-key", rest, func(c *config.Config, v string) error {
 			if strings.TrimSpace(v) == "" {
-				return errors.New("API Key 不能为空")
+				return errors.New(i18n.T("cli.api_key_empty"))
 			}
 			c.APIKey = strings.TrimSpace(v)
 			return nil
@@ -79,7 +79,7 @@ func run(args []string) int {
 	case "model":
 		return cmdSetConfig("model", rest, func(c *config.Config, v string) error {
 			if strings.TrimSpace(v) == "" {
-				return errors.New("模型名不能为空")
+				return errors.New(i18n.T("cli.model_empty"))
 			}
 			c.Model = strings.TrimSpace(v)
 			return nil
@@ -283,7 +283,7 @@ type session struct {
 func cmdAsk(request string) int {
 	request = strings.TrimSpace(request)
 	if request == "" {
-		fmt.Fprintln(stderr, "错误: 需求描述为空")
+		fmt.Fprintln(stderr, i18n.T("cli.empty_request"))
 		printUsage(stderr)
 		return 2
 	}
@@ -450,7 +450,7 @@ func (s *session) execute() int {
 	if execErr != nil {
 		rec.Error = execErr.Error()
 		s.append(rec)
-		fmt.Fprintf(stderr, "错误: %v\n", execErr)
+		fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", execErr)
 		s.done()
 		return 1
 	}

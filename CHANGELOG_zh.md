@@ -5,6 +5,21 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 与
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 约定。
 
+## [1.1.1] - 2024-05-17
+
+### Fixed
+
+- 有 5 处提示仍然硬编码中文、未跟随所选语言，导致 `LANG=C command-ai ""` 输出
+  `错误: 需求描述为空` 而不是英文。已修复：
+  - 需求为空（`cli.empty_request`）
+  - Base URL 校验（`cli.base_url_scheme`）
+  - API Key 为空（`cli.api_key_empty`）
+  - 模型名为空（`cli.model_empty`）
+  - 执行分支中直接打印字面量的一处错误输出
+- 新增源码扫描测试：只要 `i18n` 包之外的字符串字面量含有中文就判为失败，
+  防止同类遗漏再次发生。此前的「文案 key 完整性」测试无法覆盖这类问题——
+  它只检查已经走 `i18n.T` 的字符串，发现不了压根没接进去的字符串。
+
 ## [1.1.0] - 2024-05-17
 
 ### Added
@@ -77,5 +92,6 @@
 - 配置与历史文件权限在 Unix 下为 `0600`
 - 本工具不提供沙箱、白名单或危险命令拦截；执行前的 `Allow` 确认是唯一兜底
 
+[1.1.1]: https://github.com/command-ai/command-ai/releases/tag/v1.1.1
 [1.1.0]: https://github.com/command-ai/command-ai/releases/tag/v1.1.0
 [1.0.0]: https://github.com/command-ai/command-ai/releases/tag/v1.0.0
