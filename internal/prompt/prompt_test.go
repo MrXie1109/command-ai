@@ -65,7 +65,7 @@ func TestHasPlaceholder(t *testing.T) {
 func TestDefaultTemplateRendersForEachPlatform(t *testing.T) {
 	// 默认模板必须能渲染出真实环境信息，且不含未替换的内置占位符。
 	got := Render(Default(), Data{OS: "linux", Arch: "amd64", Shell: "sh"})
-	for _, want := range []string{"linux/amd64", "user shell: sh"} {
+	for _, want := range []string{"linux/amd64", "shell: sh"} {
 		if !strings.Contains(got, want) {
 			t.Errorf("默认模板缺少 %q", want)
 		}
@@ -80,16 +80,30 @@ func TestDefaultTemplateRendersForEachPlatform(t *testing.T) {
 func TestDefaultKeepsProtocolContract(t *testing.T) {
 	// 默认模板是提示词的唯一来源，必须仍然包含协议与关键约束。
 	d := Default()
+	// 只断言“必须存在的约束”，不锁死具体措辞，方便日后精简文案。
 	for _, want := range []string{
-		"Command: <a single executable command>",
+		"Command: <one executable command>", // 两种回复形式
 		"Error: <one short sentence",
-		"NOT running inside a shell",
-		"$HOME",
-		"SAME LANGUAGE",
+		"NOT in a shell", // 不在 shell 中，且不得自行调用 shell
+		"$HOME", "~",     // Unix 上禁用 ~
+		"%USERPROFILE%",   // Windows 家目录写法
+		"user's language", // 拒答说明使用用户语言
+		"exactly one",     // 只能输出一条命令
 	} {
 		if !strings.Contains(d, want) {
 			t.Errorf("默认模板缺少约束 %q", want)
 		}
+	}
+}
+
+// TestDefaultIsCompact 默认模板保持精简，避免每轮对话浪费 token。
+func TestDefaultIsCompact(t *testing.T) {
+	d := Default()
+	if lines := strings.Count(strings.TrimRight(d, "\n"), "\n") + 1; lines > 20 {
+		t.Errorf("默认模板 %d 行，应控制在 20 行以内", lines)
+	}
+	if len(d) > 1200 {
+		t.Errorf("默认模板 %d 字符，过于冗长", len(d))
 	}
 }
 

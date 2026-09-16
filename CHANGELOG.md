@@ -5,6 +5,30 @@
 This project follows [Semantic Versioning](https://semver.org/) and the
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [1.4.0] - 2026-09-16
+
+### Fixed
+
+- **Module path now matches the repository.** `go.mod` declared
+  `github.com/command-ai/command-ai` while the repository lives at
+  `github.com/MrXie1109/command-ai`, so installing from the remote failed with
+  `module declares its path as ... but was required as ...`. The module path and all
+  import paths were updated, which makes `go install` work:
+
+  ```bash
+  go install github.com/MrXie1109/command-ai/cmd/command-ai@latest
+  ```
+
+### Changed
+
+- **The default template is more compact**: 32 lines down to 20, roughly 2200 characters
+  down to 990, with every constraint kept. Same behaviour at a lower token cost per
+  request.
+- The examples section is now bilingual for the `Error:` case. A Chinese-only refusal
+  example biased the model into answering Chinese refusals even for English requests;
+  with an English example alongside it, the refusal language correctly follows the
+  request again.
+
 ## [1.3.0] - 2026-09-16
 
 ### Added
@@ -190,6 +214,7 @@ First stable release, covering every milestone (M1–M6) of the project specific
 - The tool provides no sandbox, allowlist, or dangerous-command filtering; the `Allow`
   confirmation before execution is the only safeguard
 
+[1.4.0]: https://github.com/MrXie1109/command-ai/releases/tag/v1.4.0
 [1.3.0]: https://github.com/MrXie1109/command-ai/releases/tag/v1.3.0
 [1.2.0]: https://github.com/MrXie1109/command-ai/releases/tag/v1.2.0
 [1.1.1]: https://github.com/MrXie1109/command-ai/releases/tag/v1.1.1

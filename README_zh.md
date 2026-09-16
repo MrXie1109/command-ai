@@ -76,6 +76,14 @@ CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -o dist/command-ai-darwin-arm64
 版本号由 `make` 从 `cmd/command-ai/main.go` 读取，因此 `make build` 与 `make dist`
 产出的二进制始终携带源码中的版本号；需要时可用 `make dist VERSION=2.0.0` 覆盖。
 
+### 用 `go install` 安装
+
+```bash
+go install github.com/MrXie1109/command-ai/cmd/command-ai@latest
+```
+
+二进制会装到 `$(go env GOPATH)/bin`，需要 Go 1.18 或更高版本。
+
 ### 安装到 PATH
 
 ```bash

@@ -1084,6 +1084,13 @@ func TestNoAnsiEscapesWhenPiped(t *testing.T) {
 
 // ---------- 对话模板 ----------
 
+// defaultPromptMarker 返回内置默认模板的首行。
+//
+// 用它判断“当前用的是内置提示词”，这样模板措辞调整时测试无需同步修改。
+func defaultPromptMarker() string {
+	return strings.SplitN(prompt.Default(), "\n", 2)[0]
+}
+
 // systemMessage 取出假 LLM 最近一次收到的 system 消息。
 func systemMessage(t *testing.T, llm *fakeLLM) string {
 	t.Helper()
@@ -1148,7 +1155,7 @@ func TestCustomTemplateReplacesSystemPrompt(t *testing.T) {
 		t.Errorf("应使用自定义模板, got:\n%s", sys)
 	}
 	// 内置提示词的内容不应再出现(整体替换，而非追加)。
-	if strings.Contains(sys, "Reply with EXACTLY ONE of these two forms") {
+	if strings.Contains(sys, defaultPromptMarker()) {
 		t.Errorf("自定义模板应整体替换内置提示词, got:\n%s", sys)
 	}
 	// 占位符被替换为真实取值。
@@ -1182,7 +1189,7 @@ func TestDeletedTemplateFallsBackToDefault(t *testing.T) {
 	if strings.Contains(sys, "CUSTOM") {
 		t.Errorf("删除后不应再使用旧模板:\n%s", sys)
 	}
-	if !strings.Contains(sys, "Reply with EXACTLY ONE of these two forms") {
+	if !strings.Contains(sys, defaultPromptMarker()) {
 		t.Errorf("删除后应回退到内置默认模板:\n%s", sys)
 	}
 }
@@ -1200,7 +1207,7 @@ func TestBlankTemplateFallsBackToDefault(t *testing.T) {
 	run([]string{"hi"})
 
 	sys := systemMessage(t, llm)
-	if !strings.Contains(sys, "Reply with EXACTLY ONE of these two forms") {
+	if !strings.Contains(sys, defaultPromptMarker()) {
 		t.Errorf("空模板应回退到内置默认模板:\n%s", sys)
 	}
 }
@@ -1268,7 +1275,7 @@ func TestTemplateCommandSubcommands(t *testing.T) {
 	if code := run([]string{"template", "show"}); code != 0 {
 		t.Fatalf("template show 退出码 = %d", code)
 	}
-	if !strings.Contains(out.String(), "Reply with EXACTLY ONE of these two forms") {
+	if !strings.Contains(out.String(), defaultPromptMarker()) {
 		t.Errorf("template show 应打印模板内容, got:\n%s", out.String())
 	}
 

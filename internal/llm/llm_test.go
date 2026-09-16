@@ -147,14 +147,14 @@ func TestGenerateCommandPromptRules(t *testing.T) {
 
 	sys := gotBody.Messages[0].Content
 	// 提示词必须明确“不在 shell 中”并禁止 ~ 这类语法糖。
-	if !strings.Contains(sys, "NOT running inside a shell") {
+	if !strings.Contains(sys, "NOT in a shell") {
 		t.Error("system 提示词应声明不在 shell 中")
 	}
 	if !strings.Contains(sys, "$HOME") {
 		t.Error("system 提示词应给出 $HOME 的可执行写法")
 	}
 	// 提示词必须要求用 Command:/Error: 两种形式显式标注回复。
-	if !strings.Contains(sys, "Command: <a single executable command>") {
+	if !strings.Contains(sys, "Command: <one executable command>") {
 		t.Error("system 提示词应要求 Command: 形式")
 	}
 	if !strings.Contains(sys, "Error: <one short sentence") {

@@ -80,6 +80,14 @@ CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -o dist/command-ai-darwin-arm64
 always stamp the binary with the value in the source. Override it when needed with
 `make dist VERSION=2.0.0`.
 
+### Install with `go install`
+
+```bash
+go install github.com/MrXie1109/command-ai/cmd/command-ai@latest
+```
+
+This drops the binary in `$(go env GOPATH)/bin`. Requires Go 1.18 or newer.
+
 ### Install onto your PATH
 
 ```bash

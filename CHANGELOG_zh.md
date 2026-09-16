@@ -5,6 +5,26 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 与
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 约定。
 
+## [1.4.0] - 2026-09-16
+
+### Fixed
+
+- **模块路径与仓库地址一致**。`go.mod` 声明的是 `github.com/command-ai/command-ai`
+  (早期占位名)，而仓库位于 `github.com/MrXie1109/command-ai`，导致从远端安装失败：
+  `module declares its path as ... but was required as ...`。现已更新模块路径与全部
+  import 路径，`go install` 可以正常使用：
+
+  ```bash
+  go install github.com/MrXie1109/command-ai/cmd/command-ai@latest
+  ```
+
+### Changed
+
+- **默认模板更精简**：由 32 行压到 20 行、约 2200 字符降到 990，约束一条未少。
+  行为不变，但每次请求消耗的 token 更少。
+- 示例部分补充了 `Error:` 的英文用例。此前只有中文拒答示例，会把模型带偏：
+  即使是英文需求也回中文拒答；加入英文示例后，拒答语言重新正确跟随需求语言。
+
 ## [1.3.0] - 2026-09-16
 
 ### Added
@@ -168,6 +188,7 @@
 - 配置与历史文件权限在 Unix 下为 `0600`
 - 本工具不提供沙箱、白名单或危险命令拦截；执行前的 `Allow` 确认是唯一兜底
 
+[1.4.0]: https://github.com/MrXie1109/command-ai/releases/tag/v1.4.0
 [1.3.0]: https://github.com/MrXie1109/command-ai/releases/tag/v1.3.0
 [1.2.0]: https://github.com/MrXie1109/command-ai/releases/tag/v1.2.0
 [1.1.1]: https://github.com/MrXie1109/command-ai/releases/tag/v1.1.1
