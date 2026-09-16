@@ -15,8 +15,8 @@ Allow[y/N/e/r] y
 Token: 128/12
 ```
 
-界面语言会自动跟随 `LANG` / `LC_ALL` / `LC_MESSAGES`：`zh*` 显示中文，其余（含 `C`、`POSIX`、
-未设置）显示英文。也可以用 `command-ai lang zh|en|auto` 固定语言。详见[界面语言](#界面语言)。
+界面语言会自动跟随 `LANG` / `LC_ALL` / `LC_MESSAGES`：`zh*` 显示中文，其余(含 `C`、`POSIX`、
+未设置)显示英文。也可以用 `command-ai lang zh|en|auto` 固定语言。详见[界面语言](#界面语言)。
 
 > [!WARNING]
 > 本项目**不提供任何安全防护**：没有沙箱、没有白名单、没有危险命令拦截。
@@ -32,7 +32,7 @@ Token: 128/12
 - 用户自备 LLM：兼容 OpenAI Chat Completions 协议的服务商均可
 - 多轮交互：确认 / 取消 / 解释 / 重新生成
 - 界面中英双语，自动跟随系统语言环境
-- 轻量配置（YAML）与历史（JSONL），文件权限严格
+- 轻量配置(YAML)与历史(JSONL)，文件权限严格
 - 按时间维度统计 Token 消耗
 
 ## 安装
@@ -91,12 +91,12 @@ install -m 0755 dist/command-ai ~/.local/bin/command-ai
 ## 快速开始
 
 ```bash
-# 1. 配置服务商（以 DeepSeek 为例）
+# 1. 配置服务商(以 DeepSeek 为例)
 command-ai base-url https://api.deepseek.com
 command-ai api-key sk-xxxxxxxxxxxxxxxxxxxx
 command-ai model deepseek-flash
 
-# 2. 确认配置（API Key 会脱敏显示）
+# 2. 确认配置(API Key 会脱敏显示)
 command-ai config
 
 # 3. 开始使用
@@ -135,7 +135,7 @@ command-ai 帮我列出家目录下的文件
 | `command-ai model <name>` | 设置模型名称 |
 | `command-ai lang [zh\|en\|auto]` | 查看或设置界面语言 |
 | `command-ai verbose` | 切换详细输出模式 |
-| `command-ai config` | 查看当前配置（Key 脱敏） |
+| `command-ai config` | 查看当前配置(Key 脱敏) |
 
 ### 信息类
 
@@ -152,8 +152,8 @@ command-ai usage [today|this-week|this-month|this-year|all]
 
 | 参数 | 说明 |
 |------|------|
-| `today` | 今日用量（默认） |
-| `this-week` | 本周用量（周一为一周开始） |
+| `today` | 今日用量(默认) |
+| `this-week` | 本周用量(周一为一周开始) |
 | `this-month` | 本月用量 |
 | `this-year` | 本年用量 |
 | `all` | 全部用量 |
@@ -162,7 +162,7 @@ command-ai usage [today|this-week|this-month|this-year|all]
 
 ```
 $ command-ai usage this-month
-本月用量（2024-05-01 ~ 2024-05-17）
+本月用量(2024-05-01 ~ 2024-05-17)
   请求次数:     42
   INPUT Token:  15320
   OUTPUT Token: 2871
@@ -177,9 +177,9 @@ $ command-ai usage this-month
 | 输入 | 行为 |
 |------|------|
 | `y` | 执行该命令 |
-| `n` | 取消（**直接回车等同于 `n`**） |
+| `n` | 取消(**直接回车等同于 `n`**) |
 | `e` | 用与需求相同的语言解释该命令，然后再次询问同一个命令 |
-| `r` | 重新生成命令（可附加一段反馈），然后再次询问 |
+| `r` | 重新生成命令(可附加一段反馈)，然后再次询问 |
 
 其他输入会被拒绝并重新提示。完整流程：
 
@@ -226,9 +226,9 @@ LC_ALL  >  LC_MESSAGES  >  LANG
 
 | 取值 | 界面语言 |
 |------|----------|
-| 以 `zh` 开头（`zh`、`zh_CN`、`zh-TW`、`zh_Hans`…） | 中文 |
-| `C`、`POSIX` | 英文（C locale 惯例） |
-| 其他任何语言（`en_US`、`fr_FR`、`ja_JP`…） | 英文 |
+| 以 `zh` 开头(`zh`、`zh_CN`、`zh-TW`、`zh_Hans`…) | 中文 |
+| `C`、`POSIX` | 英文(C locale 惯例) |
+| 其他任何语言(`en_US`、`fr_FR`、`ja_JP`…) | 英文 |
 | 未设置 | 英文 |
 
 ```bash
@@ -241,7 +241,7 @@ today usage (2024-05-17 to 2024-05-17)
   Executed:      3
 
 $ LANG=zh_CN.UTF-8 command-ai usage
-今日用量（2024-05-17 ~ 2024-05-17）
+今日用量(2024-05-17 ~ 2024-05-17)
   请求次数:     6
   INPUT Token:  2561
   OUTPUT Token: 529
@@ -251,7 +251,7 @@ $ LANG=zh_CN.UTF-8 command-ai usage
 
 ### 手动指定
 
-如果 `LANG` 不可靠（例如 cron、容器里往往是 `C`），可以在配置中固定语言：
+如果 `LANG` 不可靠(例如 cron、容器里往往是 `C`)，可以在配置中固定语言：
 
 ```bash
 command-ai lang zh     # 固定中文
@@ -279,7 +279,7 @@ language: auto   # auto | zh | en
 
 ### 配置文件
 
-默认路径：`$XDG_CONFIG_HOME/command-ai/config.yaml`（未设置时为 `~/.config/command-ai/config.yaml`）。
+默认路径：`$XDG_CONFIG_HOME/command-ai/config.yaml`(未设置时为 `~/.config/command-ai/config.yaml`)。
 
 ```yaml
 base_url: https://api.deepseek.com
@@ -289,7 +289,7 @@ language: auto   # auto | zh | en
 verbose: false
 ```
 
-- 文件权限 `0600`，目录权限 `0700`（Windows 下由系统 ACL 等效保护）
+- 文件权限 `0600`，目录权限 `0700`(Windows 下由系统 ACL 等效保护)
 - 写入采用「临时文件 + 原子改名」，避免中断导致配置损坏
 - 建议始终通过 `command-ai` 子命令修改，而不是手工编辑
 
@@ -315,8 +315,8 @@ verbose: false
 ```
 
 `input_tokens` / `output_tokens` / `llm_calls` 记录的是**自上一条记录以来**这一步的用量，
-而不是整个会话的累计值。这样把所有记录相加就等于真实总量，使用 `e`（解释）或
-`r`（重新生成）时也不会重复计数。“解释”不单独成一条记录，其消耗会并入随后的那条记录。
+而不是整个会话的累计值。这样把所有记录相加就等于真实总量，使用 `e`(解释)或
+`r`(重新生成)时也不会重复计数。“解释”不单独成一条记录，其消耗会并入随后的那条记录。
 
 - 文件权限 `0600`，目录权限 `0700`
 - 网络或鉴权失败不写入历史
@@ -326,7 +326,7 @@ verbose: false
 
 | 变量 | 说明 |
 |------|------|
-| `COMMAND_AI_HOME` | 覆盖配置与历史数据的存放根目录（便于测试与隔离） |
+| `COMMAND_AI_HOME` | 覆盖配置与历史数据的存放根目录(便于测试与隔离) |
 | `COMMAND_AI_CONFIG` | 仅覆盖配置文件路径 |
 | `LANG` / `LC_ALL` / `LC_MESSAGES` | 选择界面语言，优先级 `LC_ALL` > `LC_MESSAGES` > `LANG` |
 
@@ -339,8 +339,8 @@ command-ai/
 │       ├── main.go          # CLI 入口、子命令分发、交互状态机
 │       └── main_test.go     # 端到端交互测试
 ├── internal/
-│   ├── config/              # 配置读写（YAML，0600）
-│   ├── history/             # 历史记录（JSONL，按天分文件）
+│   ├── config/              # 配置读写(YAML，0600)
+│   ├── history/             # 历史记录(JSONL，按天分文件)
 │   ├── i18n/                # 中英文文案与语言环境判定
 │   ├── llm/                 # LLM 客户端与提示词
 │   ├── executor/            # 命令执行与输出捕获
@@ -361,7 +361,7 @@ command-ai/
 所有任务都可通过 `make` 完成，直接执行 `make` 会列出全部目标。
 
 ```bash
-make check      # gofmt 检查 + go vet + 测试（提交前跑这个）
+make check      # gofmt 检查 + go vet + 测试(提交前跑这个)
 make test       # 只跑测试
 make cover      # 跑测试并输出总覆盖率
 make fmt        # 格式化全部 Go 源码
@@ -383,7 +383,7 @@ go vet ./...        # 静态检查
 
 ## 安全说明
 
-- API Key 从不明文输出到标准输出或日志（`command-ai config` 会脱敏）
+- API Key 从不明文输出到标准输出或日志(`command-ai config` 会脱敏)
 - `config.yaml` 与 `history/*.jsonl` 权限为 `0600`
 - `.gitignore` 已排除 `config.yaml` 与 `history/`，避免密钥与隐私入库
 - 本工具**不提供**沙箱、白名单或危险命令拦截
@@ -393,7 +393,7 @@ go vet ./...        # 静态检查
 - ❌ 不提供命令安全防护、沙箱、白名单
 - ❌ 不内置 LLM 服务，不提供 API Key
 - ❌ 不替代 shell，不实现管道/重定向等 shell 特性
-- ❌ 不做跨会话的上下文记忆（仅单次请求内交互）
+- ❌ 不做跨会话的上下文记忆(仅单次请求内交互)
 
 ## 许可证
 

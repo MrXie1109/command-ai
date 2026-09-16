@@ -40,7 +40,7 @@ func ParsePeriod(s string) (Period, error) {
 	return "", fmt.Errorf(i18n.T("usage.unknown_period"), i18n.Quote(s))
 }
 
-// Range 返回周期对应的起止时间（本地时区，含端点当天）。
+// Range 返回周期对应的起止时间(本地时区，含端点当天)。
 func Range(p Period, now time.Time) (from, to time.Time) {
 	to = now
 	switch p {

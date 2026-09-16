@@ -1,6 +1,6 @@
 // Package i18n 提供中英文双语文案。
 //
-// 语言优先级：config.yaml 中的显式设置 > 环境变量（LC_ALL / LC_MESSAGES / LANG）。
+// 语言优先级：config.yaml 中的显式设置 > 环境变量(LC_ALL / LC_MESSAGES / LANG)。
 // 未设置或为 C/POSIX 时按惯例使用英文。
 package i18n
 
@@ -55,8 +55,8 @@ func Parse(s string) (Lang, bool) {
 
 // Resolve 结合配置值与环境变量得到最终语言。
 //
-// 配置里显式写了可识别的语言时以配置为准（用户偏好优先）；
-// 否则（auto / 空 / 无法识别）按环境变量判定。
+// 配置里显式写了可识别的语言时以配置为准(用户偏好优先)；
+// 否则(auto / 空 / 无法识别)按环境变量判定。
 func Resolve(setting string) Lang {
 	if l, ok := Parse(setting); ok {
 		return l
@@ -75,7 +75,7 @@ func Detect() Lang {
 // DetectFrom 按顺序检查语言环境取值，返回第一个有效值对应的语言。
 //
 // 取值形如 zh_CN.UTF-8、en_US.UTF-8@euro、C、POSIX。
-// 全部为空或无法识别时返回英文（C locale 惯例）。
+// 全部为空或无法识别时返回英文(C locale 惯例)。
 func DetectFrom(locales ...string) Lang {
 	for _, raw := range locales {
 		loc := strings.TrimSpace(raw)
@@ -99,7 +99,7 @@ func DetectFrom(locales ...string) Lang {
 		if lang == "zh" {
 			return ZH
 		}
-		// 任何其他语言（fr、de、ja…）都回退到英文，因为本项目只提供中英双语。
+		// 任何其他语言(fr、de、ja…)都回退到英文，因为本项目只提供中英双语。
 		return EN
 	}
 	return EN
@@ -177,7 +177,7 @@ var catalog = map[string]entry{
 
 	// ---------- executor ----------
 	"executor.empty_command": {"command is empty", "命令为空"},
-	"executor.timeout":       {"command timed out after %s", "命令执行超时（%s）"},
+	"executor.timeout":       {"command timed out after %s", "命令执行超时(%s)"},
 
 	// ---------- ui ----------
 	"ui.invalid_input":   {"invalid input %s, please enter y / n / e / r", "无效输入 %s，请输入 y / n / e / r"},
@@ -192,7 +192,7 @@ var catalog = map[string]entry{
 	"usage.period.this_month": {"this month", "本月"},
 	"usage.period.this_year":  {"this year", "本年"},
 	"usage.period.all":        {"all-time", "全部"},
-	"usage.title_range":       {"%s usage (%s to %s)", "%s用量（%s ~ %s）"},
+	"usage.title_range":       {"%s usage (%s to %s)", "%s用量(%s ~ %s)"},
 	"usage.title_plain":       {"%s usage", "%s用量"},
 	"usage.line.requests":     {"  Requests:      %d\n", "  请求次数:     %d\n"},
 	"usage.line.input":        {"  INPUT tokens:  %d\n", "  INPUT Token:  %d\n"},
@@ -309,14 +309,14 @@ const helpZH = `command-ai - 用自然语言生成并执行 shell 命令
   command-ai version                     显示版本
 
 统计周期:
-  today | this-week | this-month | this-year | all   （默认 today）
+  today | this-week | this-month | this-year | all   (默认 today)
 
 交互说明:
   生成命令后会提示 Allow[y/N/e/r]
     y  执行该命令
-    n  取消（直接回车等同于 n）
+    n  取消(直接回车等同于 n)
     e  用与需求相同的语言解释该命令，然后再次询问
-    r  重新生成命令（可附加一段反馈）
+    r  重新生成命令(可附加一段反馈)
 
 示例:
   command-ai "帮我列出当前目录下的文件"
@@ -327,5 +327,5 @@ const helpZH = `command-ai - 用自然语言生成并执行 shell 命令
   COMMAND_AI_HOME    覆盖配置与历史数据的存放根目录
   COMMAND_AI_CONFIG  仅覆盖配置文件路径
   LANG / LC_ALL / LC_MESSAGES
-                     选择界面语言（zh 为中文，其他为英文）
+                     选择界面语言(zh 为中文，其他为英文)
 `

@@ -239,7 +239,7 @@ func CleanCommand(s string) string {
 	cleaned := make([]string, 0, len(lines))
 	for _, ln := range lines {
 		t := strings.TrimSpace(ln)
-		// 跳过空行与代码块围栏（含 ```bash 这类带语言标记的围栏）。
+		// 跳过空行与代码块围栏(含 ```bash 这类带语言标记的围栏)。
 		if t == "" || strings.HasPrefix(t, "```") {
 			continue
 		}

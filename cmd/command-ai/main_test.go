@@ -597,7 +597,7 @@ func TestUsageIsNotDoubleCounted(t *testing.T) {
 	llm := newFakeLLM("ls ~", "ls $HOME")
 	srv := httptest.NewServer(llm.handler())
 	defer srv.Close()
-	// 两次生成（每次 10/5）+ 一次执行。
+	// 两次生成(每次 10/5)+ 一次执行。
 	env := setup(t, srv.URL, "r\n\nn\n")
 
 	if code := run([]string{"列出家目录"}); code != 0 {
@@ -616,7 +616,7 @@ func TestUsageIsNotDoubleCounted(t *testing.T) {
 	}
 	// 会话累计为 20/10、2 次调用，记录之和必须与之一致。
 	if sumIn != 20 || sumOut != 10 {
-		t.Errorf("记录 Token 之和 = %d/%d, want 20/10（不应重复计数）", sumIn, sumOut)
+		t.Errorf("记录 Token 之和 = %d/%d, want 20/10(不应重复计数)", sumIn, sumOut)
 	}
 	if sumCalls != 2 {
 		t.Errorf("记录调用次数之和 = %d, want 2", sumCalls)
@@ -696,7 +696,7 @@ func TestNonVerboseIsQuiet(t *testing.T) {
 	}
 }
 
-// ---------- 语言（i18n） ----------
+// ---------- 语言(i18n) ----------
 
 // runCaptured 在指定语言环境下执行一次命令并返回输出。
 func runCaptured(t *testing.T, loc string, args ...string) (string, string) {
@@ -732,7 +732,7 @@ func TestHelpFollowsLocale(t *testing.T) {
 	}
 }
 
-// TestLocaleDefaultsToEnglishWhenUnset 未设置 LANG（C locale）时使用英文。
+// TestLocaleDefaultsToEnglishWhenUnset 未设置 LANG(C locale)时使用英文。
 func TestLocaleDefaultsToEnglishWhenUnset(t *testing.T) {
 	home := t.TempDir()
 	t.Setenv("COMMAND_AI_HOME", home)

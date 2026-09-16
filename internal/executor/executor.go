@@ -1,7 +1,7 @@
 // Package executor 负责执行 LLM 生成的命令并捕获输出。
 //
 // 设计说明：本工具不替代 shell，生成的命令要么直接交给平台的命令解释器
-// （Unix 下为 sh -c，Windows 下为 cmd /C），要么以受控方式执行。
+// (Unix 下为 sh -c，Windows 下为 cmd /C)，要么以受控方式执行。
 // 出于“单条命令、无管道/重定向”的约定，这里始终通过解释器执行，
 // 以保证 PATH 查找、引号与转义行为符合用户预期。
 package executor
@@ -37,7 +37,7 @@ type Result struct {
 type Executor struct {
 	// Dir 是工作目录，为空表示继承当前进程。
 	Dir string
-	// Stdout / Stderr 若非空，执行时会同时把输出写入这两个流（用于实时展示）。
+	// Stdout / Stderr 若非空，执行时会同时把输出写入这两个流(用于实时展示)。
 	Stdout io.Writer
 	Stderr io.Writer
 	// Timeout 为 0 表示不限制。
@@ -67,7 +67,7 @@ func shellCommand(command string) (string, []string) {
 
 // Run 执行命令并返回结果。
 //
-// 命令本身正常结束（包括非 0 退出码）时 error 为 nil，退出码记录在 Result 中；
+// 命令本身正常结束(包括非 0 退出码)时 error 为 nil，退出码记录在 Result 中；
 // 仅在无法启动命令或超时的情况下返回 error。
 func (e *Executor) Run(command string) (*Result, error) {
 	command = strings.TrimSpace(command)

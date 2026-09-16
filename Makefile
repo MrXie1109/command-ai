@@ -86,12 +86,12 @@ fmt-check: ## 检查格式，未格式化则失败
 	fi
 	@echo "gofmt: 通过"
 
-check: fmt-check vet test ## fmt-check + vet + test（提交前跑这个）
+check: fmt-check vet test ## fmt-check + vet + test(提交前跑这个)
 
 tidy: ## 整理 go.mod / go.sum
 	$(GO) mod tidy
 
-install: build ## 构建并安装到 PREFIX/bin（默认 ~/.local/bin）
+install: build ## 构建并安装到 PREFIX/bin(默认 ~/.local/bin)
 	@mkdir -p $(BINDIR)
 	install -m 0755 $(DIST)/$(BINARY) $(BINDIR)/$(BINARY)
 	@echo "已安装 $(BINDIR)/$(BINARY)"

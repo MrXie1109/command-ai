@@ -135,5 +135,5 @@ func TestInvalidInputKeepsUnicodeReadable(t *testing.T) {
 	}
 }
 
-// 确保 bufio 被使用（Prompter 内部缓冲），防止将来误删。
+// 确保 bufio 被使用(Prompter 内部缓冲)，防止将来误删。
 var _ = bufio.NewReader

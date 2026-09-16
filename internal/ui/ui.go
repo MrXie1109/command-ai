@@ -106,7 +106,7 @@ func NewPrompter(in io.Reader, out io.Writer) *Prompter {
 
 // Ask 显示 "Allow[y/N/e/r] " 并读取一个选择。
 //
-// 空输入默认为 n（取消）；无法识别的输入会再次提示。
+// 空输入默认为 n(取消)；无法识别的输入会再次提示。
 // 输入流结束时返回 ActionNo，保证程序安全退出。
 func (p *Prompter) Ask() (Action, error) {
 	for {

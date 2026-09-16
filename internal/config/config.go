@@ -1,6 +1,6 @@
 // Package config 负责配置文件的读写。
 //
-// 配置文件默认为 <数据目录>/config.yaml，权限 0600（Unix）。
+// 配置文件默认为 <数据目录>/config.yaml，权限 0600(Unix)。
 package config
 
 import (
@@ -60,7 +60,7 @@ func DefaultPath() string {
 	return filepath.Join(dir, "command-ai", "config.yaml")
 }
 
-// Load 读取配置文件。文件不存在时返回默认配置（不报错）。
+// Load 读取配置文件。文件不存在时返回默认配置(不报错)。
 func Load(path string) (*Config, error) {
 	if path == "" {
 		path = DefaultPath()

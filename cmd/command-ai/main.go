@@ -37,7 +37,7 @@ func main() {
 }
 
 func run(args []string) int {
-	// 先按环境变量（LC_ALL / LC_MESSAGES / LANG）选择语言，保证即使配置
+	// 先按环境变量(LC_ALL / LC_MESSAGES / LANG)选择语言，保证即使配置
 	// 读取失败，错误提示也是可读的；随后用配置中的显式设置覆盖。
 	i18n.SetLang(i18n.Detect())
 	if cfg, _, err := loadConfig(); err == nil {
@@ -164,7 +164,7 @@ func cmdVerbose() int {
 // cmdLang 查看或设置界面语言。
 //
 //	command-ai lang            显示当前语言及来源
-//	command-ai lang zh|en|auto 设置语言（auto 表示跟随 LANG 等环境变量）
+//	command-ai lang zh|en|auto 设置语言(auto 表示跟随 LANG 等环境变量)
 func cmdLang(args []string) int {
 	cfg, path, err := loadConfig()
 	if err != nil {
@@ -273,12 +273,12 @@ type session struct {
 
 // cmdAsk 执行完整交互流程。
 //
-// 状态机（与项目书一致）：
+// 状态机(与项目书一致)：
 //
 //	输入 → Thinking → 生成命令 → Allow?
 //	                                ├─ y → 执行 → 输出 → Token
 //	                                ├─ n → 取消 → Token
-//	                                ├─ e → 解释 → Allow?（同一命令）
+//	                                ├─ e → 解释 → Allow?(同一命令)
 //	                                └─ r → 重新生成 → Allow?
 func cmdAsk(request string) int {
 	request = strings.TrimSpace(request)
@@ -312,7 +312,7 @@ func cmdAsk(request string) int {
 
 // run 驱动交互状态机。
 func (s *session) run() int {
-	haveCommand := false // 是否需要（重新）生成命令
+	haveCommand := false // 是否需要(重新)生成命令
 	showCommand := false // 是否需要打印 Command: 行
 	regens := 0
 
@@ -379,7 +379,7 @@ func (s *session) run() int {
 	}
 }
 
-// generate 调用 LLM 生成（或重新生成）一条命令，并累计 Token。
+// generate 调用 LLM 生成(或重新生成)一条命令，并累计 Token。
 func (s *session) generate() (string, error) {
 	s.verbosef(i18n.T("cli.vb_endpoint"), s.cfg.BaseURL, s.cfg.Model)
 	s.verbosef(i18n.T("cli.vb_request"), s.request)
@@ -431,7 +431,7 @@ func (s *session) countUsage(u llm.Usage) {
 	s.verbosef(i18n.T("cli.vb_cumulative"), s.pendingCalls, s.totalIn, s.totalOut)
 }
 
-// verbosef 仅在 verbose 模式下输出诊断信息（不包含任何密钥）。
+// verbosef 仅在 verbose 模式下输出诊断信息(不包含任何密钥)。
 func (s *session) verbosef(format string, args ...interface{}) {
 	if s.cfg.Verbose {
 		fmt.Fprintf(stdout, format+"\n", args...)
@@ -440,7 +440,7 @@ func (s *session) verbosef(format string, args ...interface{}) {
 
 // execute 执行当前命令，写入历史，并返回进程退出码。
 func (s *session) execute() int {
-	// 执行器的输出同时写到终端（实时展示）和内部缓冲（写入历史）。
+	// 执行器的输出同时写到终端(实时展示)和内部缓冲(写入历史)。
 	ex := executor.New()
 	ex.Stdout = stdout
 	ex.Stderr = stderr

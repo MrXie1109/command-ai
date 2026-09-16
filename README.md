@@ -246,7 +246,7 @@ today usage (2024-05-17 to 2024-05-17)
   Executed:      3
 
 $ LANG=zh_CN.UTF-8 command-ai usage
-今日用量（2024-05-17 ~ 2024-05-17）
+今日用量(2024-05-17 ~ 2024-05-17)
   请求次数:     6
   INPUT Token:  2561
   OUTPUT Token: 529

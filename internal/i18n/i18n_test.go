@@ -269,7 +269,7 @@ func moduleRoot(t *testing.T) string {
 // TestNoHardcodedChineseOutsideCatalog 扫描源码，禁止在 i18n 包之外出现
 // 中文字符串字面量。
 //
-// 回归防护：曾经有若干提示（例如需求为空的报错）因为调用形式不同而漏改，
+// 回归防护：曾经有若干提示(例如需求为空的报错)因为调用形式不同而漏改，
 // 在 LANG=C 下仍然输出中文。文案必须集中在 catalog 中。
 func TestNoHardcodedChineseOutsideCatalog(t *testing.T) {
 	root := moduleRoot(t)
@@ -307,11 +307,11 @@ func TestNoHardcodedChineseOutsideCatalog(t *testing.T) {
 		t.Fatalf("扫描源码失败: %v", err)
 	}
 	for _, o := range offenders {
-		t.Errorf("发现硬编码中文文案（应改用 i18n.T）：%s", o)
+		t.Errorf("发现硬编码中文文案(应改用 i18n.T)：%s", o)
 	}
 }
 
-// chineseStringLiterals 返回文件中所有含中文的字符串字面量（忽略注释）。
+// chineseStringLiterals 返回文件中所有含中文的字符串字面量(忽略注释)。
 func chineseStringLiterals(path string, han *regexp.Regexp) ([]string, error) {
 	fset := token.NewFileSet()
 	f, err := parser.ParseFile(fset, path, nil, parser.ParseComments)

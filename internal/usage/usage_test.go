@@ -167,7 +167,7 @@ func TestPeriodLabel(t *testing.T) {
 }
 
 func TestComputeCountsLLMCallsPerRecord(t *testing.T) {
-	// 一条记录可能合并了多次 LLM 调用（例如“解释 + 执行”）。
+	// 一条记录可能合并了多次 LLM 调用(例如“解释 + 执行”)。
 	recs := []history.Record{
 		{Choice: history.ChoiceYes, LLMCalls: 2, InputTokens: 20, OutputTokens: 10},
 		{Choice: history.ChoiceRegen, LLMCalls: 1, InputTokens: 10, OutputTokens: 5},

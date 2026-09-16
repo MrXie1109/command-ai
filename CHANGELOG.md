@@ -7,6 +7,15 @@ This project follows [Semantic Versioning](https://semver.org/) and the
 
 ## [1.1.1] - 2026-09-16
 
+### Added
+
+- `Makefile` covering the whole workflow: `build`, `dist` (six cross-compiled targets),
+  `test`, `cover`, `vet`, `fmt`, `fmt-check`, `check`, `tidy`, `install`, `uninstall`,
+  `clean`, `run`, and `version`. Running `make` with no arguments lists them.
+  `make check` runs formatting, vet, and the tests in one go.
+  The version is read from `cmd/command-ai/main.go`, so there is a single source of
+  truth; override it with `make dist VERSION=x.y.z`.
+
 ### Fixed
 
 - Five messages were still hardcoded in Chinese and ignored the selected language, so
@@ -20,6 +29,14 @@ This project follows [Semantic Versioning](https://semver.org/) and the
   `i18n` package contains Chinese characters, so this class of omission cannot recur.
   This is the guard that the earlier key-completeness test could not provide: that test
   only checked strings already routed through `i18n.T`, not strings that never were.
+
+### Changed
+
+- Project now uses half-width parentheses `()` consistently, including in Chinese text
+  where full-width `（）` is the usual convention. The maintainer prefers the half-width
+  form, so it is applied uniformly across the source, help text, and documentation.
+- Packaging details for the public repository: `LICENSE` now names the copyright holder,
+  and the changelog dates reflect the actual release date.
 
 ## [1.1.0] - 2026-09-16
 
