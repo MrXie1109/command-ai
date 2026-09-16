@@ -33,6 +33,7 @@ Token: 128/12
 - 多轮交互：确认 / 取消 / 解释 / 重新生成
 - 显式的 `Command:` / `Error:` 协议：拒答内容不会被误当作命令执行
 - 终端彩色输出，支持 `NO_COLOR` 与 `FORCE_COLOR`
+- 可编辑的对话模板 `template.txt`，与 `config.yaml` 同级
 - 界面中英双语，自动跟随系统语言环境
 - 轻量配置(YAML)与历史(JSONL)，文件权限严格
 - 按时间维度统计 Token 消耗
@@ -136,6 +137,7 @@ command-ai 帮我列出家目录下的文件
 | `command-ai api-key <key>` | 设置 API Key |
 | `command-ai model <name>` | 设置模型名称 |
 | `command-ai lang [zh\|en\|auto]` | 查看或设置界面语言 |
+| `command-ai template [show\|path\|reset]` | 查看或重置对话模板 |
 | `command-ai verbose` | 切换详细输出模式 |
 | `command-ai config` | 查看当前配置(Key 脱敏) |
 
@@ -211,6 +213,44 @@ Token: 312/48
 
 > 提示词中已明确告知模型它**不在 shell 中**，无法使用 `~`、别名等 shell 语法糖，
 > 因此它会输出 `ls $HOME` 这类可直接执行的形式。
+
+## 对话模板
+
+发给模型的提示词保存在 `template.txt` 中，位置与 `config.yaml` 同级。首次运行会自动
+生成一份内置默认模板，因此你能直接看到并修改模型实际收到内容，无需重新编译。
+
+```bash
+command-ai template          # 路径、来源与可用占位符
+command-ai template show     # 打印当前生效的模板
+command-ai template path     # 只打印路径: $EDITOR $(command-ai template path)
+command-ai template reset    # 恢复内置默认
+```
+
+模板用于**生成命令**这一步，会整体替换内置 system prompt。文件缺失或只有空白时
+自动回退到内置默认，因此删除文件即可完全恢复；`template reset` 会把默认内容写回。
+
+发送前会替换以下占位符：
+
+| 占位符 | 取值 |
+|--------|------|
+| `{{os}}` | 目标操作系统，例如 `linux` |
+| `{{arch}}` | 目标架构，例如 `amd64` |
+| `{{shell}}` | 命令将要交给的解释器，例如 `sh`、`cmd.exe` |
+| `{{request}}` | 用户本次的自然语言需求 |
+| `{{previous}}` | 上一次的命令或拒答原因(首轮为空) |
+| `{{feedback}}` | 按 `r` 时填写的反馈(可为空) |
+
+无法识别的占位符会原样保留，而不是替换成空串，这样拼写错误一眼可见。
+
+两点说明：
+
+- 模板只影响生成命令。`e`(解释)仍使用内置提示词，因为它有独立的约定
+  (必须使用与需求相同的语言)。
+- 如果模板里不写 `{{os}}` / `{{arch}}` / `{{shell}}`，模型就不知道目标平台，
+  而正是这些信息让它避免在 Unix 上输出 `~`、在 Windows 上用错路径。
+  默认模板已包含它们。
+
+该文件与 `config.yaml` 一样以 `0600` 权限写入，并已被 `.gitignore` 排除。
 
 ## 控制台颜色
 
@@ -365,6 +405,7 @@ verbose: false
 |------|------|
 | `COMMAND_AI_HOME` | 覆盖配置与历史数据的存放根目录(便于测试与隔离) |
 | `COMMAND_AI_CONFIG` | 仅覆盖配置文件路径 |
+| `COMMAND_AI_HOME` | 同时决定 `template.txt` 的生成位置 |
 | `LANG` / `LC_ALL` / `LC_MESSAGES` | 选择界面语言，优先级 `LC_ALL` > `LC_MESSAGES` > `LANG` |
 | `NO_COLOR` | 关闭彩色输出 |
 | `FORCE_COLOR` / `CLICOLOR_FORCE` | 强制彩色输出，即使被重定向 |

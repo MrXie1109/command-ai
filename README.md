@@ -36,6 +36,7 @@ You can pin it with `command-ai lang zh|en|auto`. See [Interface language](#inte
 - Multi-turn interaction: confirm / cancel / explain / regenerate
 - Explicit `Command:` / `Error:` protocol: a refusal is never executed by accident
 - Coloured output on a terminal, with `NO_COLOR` and `FORCE_COLOR` support
+- Editable prompt template in `template.txt`, next to `config.yaml`
 - Bilingual interface (English and Chinese) that follows your system locale
 - Lightweight config (YAML) and history (JSONL) with strict file permissions
 - Token usage statistics by time period
@@ -140,6 +141,7 @@ command-ai list the files in my home directory
 | `command-ai api-key <key>` | Set the API key |
 | `command-ai model <name>` | Set the model name |
 | `command-ai lang [zh\|en\|auto]` | Show or set the interface language |
+| `command-ai template [show\|path\|reset]` | View or reset the prompt template |
 | `command-ai verbose` | Toggle verbose output |
 | `command-ai config` | Show the current configuration (key masked) |
 
@@ -237,6 +239,47 @@ Token: 312/48
 > The system prompt tells the model explicitly that it is **not inside a shell** and cannot
 > use shell sugar such as `~` or aliases, so it emits directly executable forms like
 > `ls $HOME`.
+
+## Prompt template
+
+The prompt sent to the model lives in `template.txt`, in the same directory as
+`config.yaml`. It is created with the built-in default on first run, so you can see and
+edit exactly what the model receives — no recompilation needed.
+
+```bash
+command-ai template          # path, source, and available placeholders
+command-ai template show     # print the effective template
+command-ai template path     # print the path only: $EDITOR $(command-ai template path)
+command-ai template reset    # restore the built-in default
+```
+
+The template replaces the built-in system prompt for **command generation**. If the file
+is missing or contains only whitespace, the built-in default is used, so deleting the
+file is a complete undo. `command-ai template reset` writes the default back.
+
+Placeholders are substituted before the prompt is sent:
+
+| Placeholder | Value |
+|-------------|-------|
+| `{{os}}` | Target operating system, e.g. `linux` |
+| `{{arch}}` | Target architecture, e.g. `amd64` |
+| `{{shell}}` | Interpreter the command is handed to, e.g. `sh`, `cmd.exe` |
+| `{{request}}` | The user's natural-language request |
+| `{{previous}}` | The previous command or refusal (empty on the first round) |
+| `{{feedback}}` | The feedback typed after `r` (may be empty) |
+
+Unknown placeholders are left untouched rather than blanked, so a typo is visible instead
+of silently disappearing.
+
+Two notes:
+
+- The template affects command generation only. The `e` (explain) prompts stay built in,
+  because they carry their own contract (answer in the language of the request).
+- If your template omits `{{os}}` / `{{arch}}` / `{{shell}}`, the model will not know the
+  target platform, which is what keeps it from emitting `~` on Unix or wrong paths on
+  Windows. The default template includes them.
+
+The file is written with mode `0600` like `config.yaml`, and is excluded by `.gitignore`.
 
 ## Colours
 
@@ -400,6 +443,7 @@ into the record that follows.
 |----------|-------------|
 | `COMMAND_AI_HOME` | Override the root directory for config and history (useful for isolation and testing) |
 | `COMMAND_AI_CONFIG` | Override only the config file path |
+| `COMMAND_AI_HOME` | Also determines where `template.txt` is created |
 | `LANG` / `LC_ALL` / `LC_MESSAGES` | Select the interface language; priority `LC_ALL` > `LC_MESSAGES` > `LANG` |
 | `NO_COLOR` | Disable coloured output |
 | `FORCE_COLOR` / `CLICOLOR_FORCE` | Force coloured output even when redirected |
@@ -414,6 +458,7 @@ command-ai/
 │       └── main_test.go     # end-to-end interaction tests
 ├── internal/
 │   ├── config/              # config read/write (YAML, 0600)
+│   ├── prompt/              # editable prompt template and placeholders
 │   ├── history/             # history records (JSONL, one file per day)
 │   ├── i18n/                # English/Chinese strings and locale detection
 │   ├── llm/                 # LLM client and prompts

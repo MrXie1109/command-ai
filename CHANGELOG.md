@@ -5,6 +5,39 @@
 This project follows [Semantic Versioning](https://semver.org/) and the
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [1.3.0] - 2026-09-16
+
+### Added
+
+- **Editable prompt template.** The system prompt used for command generation now lives in
+  `template.txt`, next to `config.yaml`. It is created with the built-in default on first
+  run, so what the model receives is visible and editable without recompiling. The file
+  replaces the built-in system prompt; deleting it (or emptying it) restores the default.
+- **Placeholders** substituted before the prompt is sent: `{{os}}`, `{{arch}}`,
+  `{{shell}}`, `{{request}}`, `{{previous}}`, `{{feedback}}`. Unknown placeholders are
+  left untouched so typos stay visible.
+- **`command-ai template [show|path|reset]`** to inspect the path and source, print the
+  effective template, or restore the built-in default.
+- New `internal/prompt` package owning the default template, placeholder rendering, and
+  file handling (mode `0600`, `0700` directory).
+
+### Changed
+
+- The default system prompt now has a single definition shared by the built-in fallback and
+  the generated `template.txt`, so the two can no longer drift apart.
+- `template.txt` is excluded by `.gitignore` alongside `config.yaml`.
+
+### Fixed
+
+- Changelog links pointed at a placeholder repository path; they now point at the real one.
+
+### Notes
+
+- The template applies to command generation only; the `e` (explain) prompts stay built in
+  because they carry their own contract about answering in the request's language.
+- A template that omits `{{os}}` / `{{arch}}` / `{{shell}}` no longer tells the model the
+  target platform, which is what prevents `~` on Unix and wrong paths on Windows.
+
 ## [1.2.0] - 2026-09-16
 
 ### Added
@@ -157,6 +190,8 @@ First stable release, covering every milestone (M1–M6) of the project specific
 - The tool provides no sandbox, allowlist, or dangerous-command filtering; the `Allow`
   confirmation before execution is the only safeguard
 
-[1.1.1]: https://github.com/command-ai/command-ai/releases/tag/v1.1.1
-[1.1.0]: https://github.com/command-ai/command-ai/releases/tag/v1.1.0
-[1.0.0]: https://github.com/command-ai/command-ai/releases/tag/v1.0.0
+[1.3.0]: https://github.com/MrXie1109/command-ai/releases/tag/v1.3.0
+[1.2.0]: https://github.com/MrXie1109/command-ai/releases/tag/v1.2.0
+[1.1.1]: https://github.com/MrXie1109/command-ai/releases/tag/v1.1.1
+[1.1.0]: https://github.com/MrXie1109/command-ai/releases/tag/v1.1.0
+[1.0.0]: https://github.com/MrXie1109/command-ai/releases/tag/v1.0.0

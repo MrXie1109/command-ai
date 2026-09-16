@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/command-ai/command-ai/internal/i18n"
+	"github.com/command-ai/command-ai/internal/prompt"
 )
 
 const (
@@ -43,6 +44,10 @@ type Client struct {
 	APIKey  string
 	Model   string
 	HTTP    *http.Client
+
+	// SystemTemplate 是「生成命令」使用的 system 提示词模板。
+	// 为空时使用 prompt.Default()。
+	SystemTemplate string
 }
 
 // New 创建一个客户端。httpClient 为 nil 时使用默认客户端。
@@ -174,44 +179,27 @@ var (
 	errorLabels   = []string{"error:", "error：", "错误:", "错误："}
 )
 
-// systemPrompt 描述“生成命令”的约束。
+// systemPrompt 渲染本次「生成命令」使用的 system 提示词。
 //
-// 关键约定：模型必须显式标注回复类型。工具只执行带 "Command:" 前缀的内容，
-// 因此模型拒答时不会被误当成命令执行。
-func systemPrompt() string {
-	return fmt.Sprintf(`You are a shell command generator for a CLI tool named command-ai.
+// 内容来自 SystemTemplate(用户的 template.txt)，为空时回退到内置默认模板。
+func (c *Client) systemPrompt(d prompt.Data) string {
+	tpl := c.SystemTemplate
+	if strings.TrimSpace(tpl) == "" {
+		tpl = prompt.Default()
+	}
+	return prompt.Render(tpl, d)
+}
 
-Environment: %s/%s, user shell: %s
-
-Reply with EXACTLY ONE of these two forms, and nothing else:
-
-Command: <a single executable command>
-Error: <one short sentence explaining why no command can be given>
-
-Use "Command:" only when the request can be expressed as one executable command:
-- Keep the command on the SAME line as the prefix.
-- Exactly one command. No explanation, no markdown code fences, no leading "$" or ">".
-- You are NOT running inside a shell and must NOT invoke one yourself. Never emit
-  `+"`sh -c ...`"+`, `+"`bash -c ...`"+`, `+"`cmd /C ...`"+` or any other nested shell wrapper;
-  command-ai already hands your command to the platform shell.
-- Never use shell-only sugar or aliases. Write `+"`$HOME`"+` instead of `+"`~`"+`, and
-  `+"`%%USERPROFILE%%`"+` on Windows. No history expansion, no interactive built-ins.
-- Prefer common tools that exist on the target platform.
-
-Use "Error:" whenever you cannot produce a single command:
-- The request is not a computer task (chit-chat, greetings, insults, opinions).
-- It needs an interactive session, a shell built-in, or several dependent steps.
-- It is unsafe or you must refuse it.
-Write the reason in the SAME LANGUAGE as the user's request, in one short sentence.
-Never disguise a sentence, a placeholder, or an English apology as a "Command:".
-
-Examples:
-  "list files in my home directory"  -> Command: ls $HOME
-  "show disk usage"                  -> Command: df -h
-  "what is the meaning of life"      -> Error: 这不是可以用单条命令完成的任务。
-  "open an interactive python shell" -> Error: 交互式会话无法用单条命令完成。
-  "I hate you"                       -> Error: 我无法执行这个请求。`,
-		runtime.GOOS, runtime.GOARCH, shellName())
+// envData 填充与运行环境相关的占位符。
+func envData(request, previous, feedback string) prompt.Data {
+	return prompt.Data{
+		OS:       runtime.GOOS,
+		Arch:     runtime.GOARCH,
+		Shell:    shellName(),
+		Request:  request,
+		Previous: previous,
+		Feedback: feedback,
+	}
 }
 
 func shellName() string {
@@ -281,7 +269,7 @@ func ParseReply(raw string) Reply {
 //
 // reply 是上一次的回复、feedback 是用户反馈，二者仅在“重新生成”时非空。
 func (c *Client) GenerateCommand(ctx context.Context, request string, reply Reply, feedback string) (Reply, Usage, error) {
-	msgs := []Message{{Role: "system", Content: systemPrompt()}}
+	msgs := []Message{{Role: "system", Content: c.systemPrompt(envData(request, reply.Text, feedback))}}
 
 	var user strings.Builder
 	fmt.Fprintf(&user, "Request: %s\n", request)

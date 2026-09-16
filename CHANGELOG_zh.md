@@ -5,6 +5,37 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 与
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 约定。
 
+## [1.3.0] - 2026-09-16
+
+### Added
+
+- **可编辑的对话模板**。生成命令所用的 system 提示词改为保存在 `template.txt` 中，
+  与 `config.yaml` 同级。首次运行自动生成一份内置默认模板，模型实际收到的内容
+  一目了然、可直接修改，无需重新编译。该文件会整体替换内置 system prompt；
+  删除它(或清空内容)即可恢复默认。
+- **占位符**在发送前替换：`{{os}}`、`{{arch}}`、`{{shell}}`、`{{request}}`、
+  `{{previous}}`、`{{feedback}}`。无法识别的占位符原样保留，拼写错误一眼可见。
+- **`command-ai template [show|path|reset]`**：查看路径与来源、打印当前生效模板、
+  或恢复内置默认。
+- 新增 `internal/prompt` 包，负责默认模板、占位符渲染与文件读写
+  (文件 `0600`、目录 `0700`)。
+
+### Changed
+
+- 默认提示词改为单一定义，内置回退与生成的 `template.txt` 共用同一份内容，
+  两者不会再各自漂移。
+- `template.txt` 与 `config.yaml` 一样被 `.gitignore` 排除。
+
+### Fixed
+
+- CHANGELOG 中的版本链接此前指向占位仓库地址，现已改为真实地址。
+
+### Notes
+
+- 模板只作用于生成命令；`e`(解释)仍使用内置提示词，因为它有独立的语言约定。
+- 模板若省略 `{{os}}` / `{{arch}}` / `{{shell}}`，模型将不知道目标平台，
+  而正是这些信息避免它在 Unix 上输出 `~`、在 Windows 上用错路径。
+
 ## [1.2.0] - 2026-09-16
 
 ### Added
@@ -137,6 +168,8 @@
 - 配置与历史文件权限在 Unix 下为 `0600`
 - 本工具不提供沙箱、白名单或危险命令拦截；执行前的 `Allow` 确认是唯一兜底
 
-[1.1.1]: https://github.com/command-ai/command-ai/releases/tag/v1.1.1
-[1.1.0]: https://github.com/command-ai/command-ai/releases/tag/v1.1.0
-[1.0.0]: https://github.com/command-ai/command-ai/releases/tag/v1.0.0
+[1.3.0]: https://github.com/MrXie1109/command-ai/releases/tag/v1.3.0
+[1.2.0]: https://github.com/MrXie1109/command-ai/releases/tag/v1.2.0
+[1.1.1]: https://github.com/MrXie1109/command-ai/releases/tag/v1.1.1
+[1.1.0]: https://github.com/MrXie1109/command-ai/releases/tag/v1.1.0
+[1.0.0]: https://github.com/MrXie1109/command-ai/releases/tag/v1.0.0

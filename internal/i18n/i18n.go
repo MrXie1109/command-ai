@@ -224,6 +224,16 @@ var catalog = map[string]entry{
 	"cli.unlabeled_reply":   {"the model did not label its reply as Command or Error, so nothing was executed", "模型没有把回复标注为 Command 或 Error，因此没有执行任何内容"},
 	"cli.token":             {"Token: %d/%d\n", "Token: %d/%d\n"},
 	"cli.lang_usage":        {"usage: command-ai lang [zh|en|auto]", "用法: command-ai lang [zh|en|auto]"},
+	"cli.tmpl_path":         {"template file: %s", "模板文件: %s"},
+	"cli.tmpl_custom":       {"source: your template.txt (%d bytes)", "来源: 你的 template.txt (%d 字节)"},
+	"cli.tmpl_default":      {"source: built-in default (no template.txt yet, or it is empty)", "来源: 内置默认(尚无 template.txt 或文件为空)"},
+	"cli.tmpl_created":      {"created a default template at %s", "已生成默认模板: %s"},
+	"cli.tmpl_placeholders": {"placeholders: %s", "可用占位符: %s"},
+	"cli.tmpl_hint":         {"edit it directly; delete the file to fall back to the built-in default", "可直接编辑该文件；删除它即可恢复内置默认"},
+	"cli.tmpl_usage":        {"usage: command-ai template [show|path|reset]", "用法: command-ai template [show|path|reset]"},
+	"cli.tmpl_reset":        {"restored the built-in default template at %s", "已恢复内置默认模板: %s"},
+	"cli.tmpl_reset_warn":   {"warning: this overwrites your edits to %s", "警告: 该操作会覆盖你对 %s 的修改"},
+	"cli.tmpl_show_banner":  {"# effective template (what is sent to the model)", "# 当前生效的模板(即发送给模型的内容)"},
 	"cli.lang_invalid":      {"error: language must be zh, en or auto", "错误: 语言只能是 zh、en 或 auto"},
 	"cli.lang_set":          {"language = %s", "language = %s"},
 	"cli.lang_status":       {"current: %s, from config: %s, from environment: %s", "当前: %s，配置文件: %s，环境变量: %s"},
@@ -293,6 +303,12 @@ Examples:
   command-ai "show me what is in my home directory"
   command-ai usage this-month
 
+Template:
+  The prompt sent to the model lives in template.txt, next to config.yaml.
+  It is created with a default on first run; edit it freely, or delete it to
+  restore the built-in default. Placeholders: {{os}} {{arch}} {{shell}}
+  {{request}} {{previous}} {{feedback}}
+
 Environment:
   COMMAND_AI_HOME    override the root directory for config and history
   COMMAND_AI_CONFIG  override only the config file path
@@ -308,6 +324,7 @@ const helpZH = `command-ai - 用自然语言生成并执行 shell 命令
   command-ai api-key <key>               设置 API Key
   command-ai model <name>                设置模型名称
   command-ai lang [zh|en|auto]           设置界面语言
+  command-ai template [show|path|reset]  查看或重置对话模板
   command-ai verbose                     切换详细输出模式
   command-ai usage [周期]                查看 Token 用量
   command-ai config                      查看当前配置
@@ -328,6 +345,11 @@ const helpZH = `command-ai - 用自然语言生成并执行 shell 命令
   command-ai "帮我列出当前目录下的文件"
   command-ai "帮我查看家目录下的文件"
   command-ai usage this-month
+
+模板:
+  发给模型的提示词保存在与 config.yaml 同级的 template.txt 中。首次运行时
+  会自动生成一份默认模板，可直接编辑；删除该文件即可恢复内置默认。
+  可用占位符: {{os}} {{arch}} {{shell}} {{request}} {{previous}} {{feedback}}
 
 环境变量:
   COMMAND_AI_HOME    覆盖配置与历史数据的存放根目录

@@ -16,6 +16,7 @@ import (
 
 	"github.com/command-ai/command-ai/internal/history"
 	"github.com/command-ai/command-ai/internal/i18n"
+	"github.com/command-ai/command-ai/internal/prompt"
 )
 
 // fakeLLM 是一个可编程的假 LLM 服务。
@@ -1078,5 +1079,240 @@ func TestNoAnsiEscapesWhenPiped(t *testing.T) {
 	out := env.stdout.String() + env.stderr.String()
 	if strings.Contains(out, "\033[") {
 		t.Errorf("非终端输出不应包含 ANSI 转义:\n%q", out)
+	}
+}
+
+// ---------- 对话模板 ----------
+
+// systemMessage 取出假 LLM 最近一次收到的 system 消息。
+func systemMessage(t *testing.T, llm *fakeLLM) string {
+	t.Helper()
+	msgs, _ := llm.lastBody["messages"].([]any)
+	if len(msgs) == 0 {
+		t.Fatalf("未收到任何消息: %+v", llm.lastBody)
+	}
+	sys, _ := msgs[0].(map[string]any)
+	content, _ := sys["content"].(string)
+	return content
+}
+
+// TestTemplateFileIsCreatedNextToConfig 首次运行应生成 template.txt，位置与 config.yaml 同级。
+func TestTemplateFileIsCreatedNextToConfig(t *testing.T) {
+	llm := newFakeLLM("echo hi")
+	srv := httptest.NewServer(llm.handler())
+	defer srv.Close()
+	env := setup(t, srv.URL, "n\n")
+
+	// 运行前不存在。
+	if _, err := os.Stat(filepath.Join(env.home, "template.txt")); !os.IsNotExist(err) {
+		t.Fatalf("运行前不应存在 template.txt: %v", err)
+	}
+
+	run([]string{"hi"})
+
+	path := filepath.Join(env.home, "template.txt")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatalf("首次运行应生成 template.txt: %v", err)
+	}
+	if string(data) != prompt.Default() {
+		t.Error("生成的内容应等于内置默认模板")
+	}
+	if !strings.Contains(env.stderr.String(), "template.txt") {
+		t.Errorf("应提示已生成模板, stderr=%q", env.stderr.String())
+	}
+
+	// 与 config.yaml 同级。
+	cfgPath := filepath.Join(env.home, "config.yaml")
+	if filepath.Dir(path) != filepath.Dir(cfgPath) {
+		t.Errorf("模板目录 %q 应等于配置目录 %q", filepath.Dir(path), filepath.Dir(cfgPath))
+	}
+}
+
+// TestCustomTemplateReplacesSystemPrompt 自定义模板必须整体替换内置 system prompt。
+func TestCustomTemplateReplacesSystemPrompt(t *testing.T) {
+	llm := newFakeLLM("echo hi")
+	srv := httptest.NewServer(llm.handler())
+	defer srv.Close()
+	env := setup(t, srv.URL, "n\n")
+
+	const custom = "YOU ARE MY CUSTOM PROMPT. os={{os}} arch={{arch}} shell={{shell}} req={{request}}"
+	if err := os.WriteFile(filepath.Join(env.home, "template.txt"), []byte(custom), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	run([]string{"列出文件"})
+
+	sys := systemMessage(t, llm)
+	if !strings.Contains(sys, "YOU ARE MY CUSTOM PROMPT.") {
+		t.Errorf("应使用自定义模板, got:\n%s", sys)
+	}
+	// 内置提示词的内容不应再出现(整体替换，而非追加)。
+	if strings.Contains(sys, "Reply with EXACTLY ONE of these two forms") {
+		t.Errorf("自定义模板应整体替换内置提示词, got:\n%s", sys)
+	}
+	// 占位符被替换为真实取值。
+	if strings.Contains(sys, "{{os}}") || strings.Contains(sys, "{{request}}") {
+		t.Errorf("占位符未被替换:\n%s", sys)
+	}
+	for _, want := range []string{runtime.GOOS, runtime.GOARCH, "列出文件"} {
+		if !strings.Contains(sys, want) {
+			t.Errorf("模板应包含渲染后的 %q, got:\n%s", want, sys)
+		}
+	}
+}
+
+// TestDeletedTemplateFallsBackToDefault 删掉模板即恢复内置默认。
+func TestDeletedTemplateFallsBackToDefault(t *testing.T) {
+	llm := newFakeLLM("echo hi")
+	srv := httptest.NewServer(llm.handler())
+	defer srv.Close()
+	env := setup(t, srv.URL, "n\n")
+
+	path := filepath.Join(env.home, "template.txt")
+	run([]string{"first"})
+	// 首次运行会生成模板，这里改成自定义内容后再删除。
+	os.WriteFile(path, []byte("CUSTOM"), 0o600)
+	if err := os.Remove(path); err != nil {
+		t.Fatal(err)
+	}
+
+	run([]string{"second"})
+	sys := systemMessage(t, llm)
+	if strings.Contains(sys, "CUSTOM") {
+		t.Errorf("删除后不应再使用旧模板:\n%s", sys)
+	}
+	if !strings.Contains(sys, "Reply with EXACTLY ONE of these two forms") {
+		t.Errorf("删除后应回退到内置默认模板:\n%s", sys)
+	}
+}
+
+// TestBlankTemplateFallsBackToDefault 空文件同样回退，避免得到空提示词。
+func TestBlankTemplateFallsBackToDefault(t *testing.T) {
+	llm := newFakeLLM("echo hi")
+	srv := httptest.NewServer(llm.handler())
+	defer srv.Close()
+	env := setup(t, srv.URL, "n\n")
+
+	if err := os.WriteFile(filepath.Join(env.home, "template.txt"), []byte("  \n\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	run([]string{"hi"})
+
+	sys := systemMessage(t, llm)
+	if !strings.Contains(sys, "Reply with EXACTLY ONE of these two forms") {
+		t.Errorf("空模板应回退到内置默认模板:\n%s", sys)
+	}
+}
+
+// TestTemplateDoesNotAffectExplainPrompts 模板只作用于生成命令，解释仍走内置提示词。
+func TestTemplateDoesNotAffectExplainPrompts(t *testing.T) {
+	llm := newFakeLLM("echo hi")
+	srv := httptest.NewServer(llm.handler())
+	defer srv.Close()
+	env := setup(t, srv.URL, "e\nn\n")
+
+	os.WriteFile(filepath.Join(env.home, "template.txt"), []byte("CUSTOM ONLY {{os}}"), 0o600)
+	run([]string{"hi"})
+
+	// 解释步骤的 system 消息应是内置的解释提示词，而不是用户的模板。
+	sys := systemMessage(t, llm)
+	if strings.Contains(sys, "CUSTOM ONLY") {
+		t.Errorf("解释步骤不应使用命令生成模板:\n%s", sys)
+	}
+	if !strings.Contains(sys, "You explain shell commands") {
+		t.Errorf("解释步骤应使用内置解释提示词:\n%s", sys)
+	}
+}
+
+// TestTemplateCommandSubcommands 覆盖 template 子命令。
+func TestTemplateCommandSubcommands(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("COMMAND_AI_HOME", home)
+	setLocale(t, "zh_CN.UTF-8")
+
+	var out, errBuf bytes.Buffer
+	oldOut, oldErr, oldIn := stdout, stderr, stdin
+	stdout, stderr, stdin = &out, &errBuf, strings.NewReader("")
+	defer func() { stdout, stderr, stdin = oldOut, oldErr, oldIn }()
+
+	path := filepath.Join(home, "template.txt")
+
+	// status：生成并报告来源
+	if code := run([]string{"template"}); code != 0 {
+		t.Fatalf("template 退出码 = %d", code)
+	}
+	if !strings.Contains(out.String(), path) {
+		t.Errorf("应显示模板路径, got:\n%s", out.String())
+	}
+	for _, want := range []string{"{{os}}", "{{request}}"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("应列出占位符 %q, got:\n%s", want, out.String())
+		}
+	}
+	if _, err := os.Stat(path); err != nil {
+		t.Fatalf("template 命令应生成文件: %v", err)
+	}
+
+	// path：只输出路径
+	out.Reset()
+	if code := run([]string{"template", "path"}); code != 0 {
+		t.Fatalf("template path 退出码 = %d", code)
+	}
+	if strings.TrimSpace(out.String()) != path {
+		t.Errorf("template path 应只输出路径, got %q", out.String())
+	}
+
+	// show：打印当前生效内容
+	out.Reset()
+	if code := run([]string{"template", "show"}); code != 0 {
+		t.Fatalf("template show 退出码 = %d", code)
+	}
+	if !strings.Contains(out.String(), "Reply with EXACTLY ONE of these two forms") {
+		t.Errorf("template show 应打印模板内容, got:\n%s", out.String())
+	}
+
+	// 自定义后 show 应反映出来
+	os.WriteFile(path, []byte("MY OWN {{os}}"), 0o600)
+	out.Reset()
+	run([]string{"template", "show"})
+	if !strings.Contains(out.String(), "MY OWN") {
+		t.Errorf("show 应反映自定义内容, got:\n%s", out.String())
+	}
+
+	// reset：恢复默认
+	out.Reset()
+	if code := run([]string{"template", "reset"}); code != 0 {
+		t.Fatalf("template reset 退出码 = %d", code)
+	}
+	data, _ := os.ReadFile(path)
+	if string(data) != prompt.Default() {
+		t.Error("reset 应恢复内置默认模板")
+	}
+
+	// 非法子命令
+	errBuf.Reset()
+	if code := run([]string{"template", "bogus"}); code != 2 {
+		t.Errorf("非法子命令退出码 = %d, want 2", code)
+	}
+}
+
+// TestTemplateNotTrackedByGitPlaceholder 提醒：模板属于运行时文件。
+// 该断言由 .gitignore 保证，这里只确认 help 中说明了模板用途。
+func TestHelpMentionsTemplate(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("COMMAND_AI_HOME", home)
+	setLocale(t, "en_US.UTF-8")
+
+	var out bytes.Buffer
+	oldOut := stdout
+	stdout = &out
+	defer func() { stdout = oldOut }()
+
+	run([]string{"help"})
+	for _, want := range []string{"template.txt", "{{os}}"} {
+		if !strings.Contains(out.String(), want) {
+			t.Errorf("help 应提到 %q", want)
+		}
 	}
 }

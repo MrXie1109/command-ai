@@ -60,6 +60,16 @@ func DefaultPath() string {
 	return filepath.Join(dir, "command-ai", "config.yaml")
 }
 
+// EffectivePath 返回实际生效的配置文件路径。
+//
+// 优先使用 COMMAND_AI_HOME(便于隔离与测试)，其次 DefaultPath。
+func EffectivePath() string {
+	if home := os.Getenv("COMMAND_AI_HOME"); home != "" {
+		return filepath.Join(home, "config.yaml")
+	}
+	return DefaultPath()
+}
+
 // Load 读取配置文件。文件不存在时返回默认配置(不报错)。
 func Load(path string) (*Config, error) {
 	if path == "" {

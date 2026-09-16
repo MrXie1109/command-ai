@@ -295,9 +295,9 @@ func TestNoHardcodedChineseOutsideCatalog(t *testing.T) {
 		if filepath.Base(filepath.Dir(path)) == "i18n" {
 			return nil
 		}
-		// internal/llm 只包含发给模型的提示词，不面向用户：其中的中文是
-		// few-shot 示例(教模型用中文回答中文提问)，不是界面文案，故豁免。
-		if filepath.Base(filepath.Dir(path)) == "llm" {
+		// internal/llm 与 internal/prompt 只包含发给模型的提示词，不面向用户：
+		// 其中的中文是 few-shot 示例(教模型用中文回答中文提问)，不是界面文案。
+		if pkg := filepath.Base(filepath.Dir(path)); pkg == "llm" || pkg == "prompt" {
 			return nil
 		}
 		lits, lerr := chineseStringLiterals(path, han)

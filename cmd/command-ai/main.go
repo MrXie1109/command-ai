@@ -15,12 +15,13 @@ import (
 	"github.com/command-ai/command-ai/internal/history"
 	"github.com/command-ai/command-ai/internal/i18n"
 	"github.com/command-ai/command-ai/internal/llm"
+	"github.com/command-ai/command-ai/internal/prompt"
 	"github.com/command-ai/command-ai/internal/ui"
 	"github.com/command-ai/command-ai/internal/usage"
 )
 
 // version 是当前版本号，构建时可通过 -ldflags 覆盖。
-var version = "1.2.0"
+var version = "1.3.0"
 
 // 标准流被抽成变量，便于在测试中替换。
 var (
@@ -88,6 +89,8 @@ func run(args []string) int {
 		return cmdVerbose()
 	case "lang", "language":
 		return cmdLang(rest)
+	case "template", "tmpl":
+		return cmdTemplate(rest)
 	case "usage":
 		return cmdUsage(rest)
 	case "config":
@@ -102,16 +105,32 @@ func run(args []string) int {
 // ---------- 配置类 ----------
 
 func loadConfig() (*config.Config, string, error) {
-	path := config.DefaultPath()
-	if v := os.Getenv("COMMAND_AI_HOME"); v != "" {
-		// 便于测试与自定义数据目录。
-		path = v + "/config.yaml"
-	}
+	path := config.EffectivePath()
 	cfg, err := config.Load(path)
 	if err != nil {
 		return nil, path, err
 	}
 	return cfg, path, nil
+}
+
+// loadSystemTemplate 读取与 config.yaml 同级的对话模板。
+//
+// 首次运行时自动生成一份内置默认模板，便于用户发现并直接编辑；
+// 生成失败(例如目录只读)不算致命错误，此时使用内置模板。
+func loadSystemTemplate() string {
+	path := prompt.PathFor(config.EffectivePath())
+	if created, err := prompt.Ensure(path); err != nil {
+		// 只提示，不影响主流程。
+		fmt.Fprintf(stderr, i18n.T("cli.warn")+"\n", err)
+	} else if created {
+		fmt.Fprintf(stderr, i18n.T("cli.tmpl_created")+"\n", path)
+	}
+	content, _, err := prompt.Load(path)
+	if err != nil {
+		fmt.Fprintf(stderr, i18n.T("cli.warn")+"\n", err)
+		return prompt.Default()
+	}
+	return content
 }
 
 // cmdSetConfig 是 base-url / api-key / model 三个设置命令的通用实现。
@@ -203,6 +222,76 @@ func cmdLang(args []string) int {
 	}
 	fmt.Fprintf(stdout, i18n.T("cli.saved_to")+"\n", path)
 	return 0
+}
+
+// cmdTemplate 查看或重置对话模板。
+//
+//	command-ai template          显示模板路径、来源与可用占位符
+//	command-ai template show     打印当前生效的模板内容
+//	command-ai template path     仅打印路径，便于 $EDITOR $(command-ai template path)
+//	command-ai template reset    恢复内置默认模板
+func cmdTemplate(args []string) int {
+	cfgPath := config.EffectivePath()
+	path := prompt.PathFor(cfgPath)
+
+	sub := ""
+	if len(args) > 0 {
+		sub = strings.ToLower(strings.TrimSpace(args[0]))
+	}
+
+	switch sub {
+	case "", "status":
+		// 首次运行时同样生成默认模板，保持与执行流程一致。
+		if created, err := prompt.Ensure(path); err != nil {
+			fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
+		} else if created {
+			fmt.Fprintf(stdout, i18n.T("cli.tmpl_created")+"\n", path)
+		}
+		content, custom, err := prompt.Load(path)
+		if err != nil {
+			fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, i18n.T("cli.tmpl_path")+"\n", path)
+		if custom {
+			fmt.Fprintf(stdout, i18n.T("cli.tmpl_custom")+"\n", len(content))
+		} else {
+			fmt.Fprintln(stdout, i18n.T("cli.tmpl_default"))
+		}
+		fmt.Fprintf(stdout, i18n.T("cli.tmpl_placeholders")+"\n", strings.Join(prompt.Placeholders(), " "))
+		fmt.Fprintln(stdout, i18n.T("cli.tmpl_hint"))
+		return 0
+
+	case "path":
+		fmt.Fprintln(stdout, path)
+		return 0
+
+	case "show":
+		content, _, err := prompt.Load(path)
+		if err != nil {
+			fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
+			return 1
+		}
+		fmt.Fprintln(stdout, i18n.T("cli.tmpl_show_banner"))
+		fmt.Fprint(stdout, content)
+		if !strings.HasSuffix(content, "\n") {
+			fmt.Fprintln(stdout)
+		}
+		return 0
+
+	case "reset":
+		fmt.Fprintf(stdout, i18n.T("cli.tmpl_reset_warn")+"\n", path)
+		if err := prompt.Save(path, prompt.Default()); err != nil {
+			fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
+			return 1
+		}
+		fmt.Fprintf(stdout, i18n.T("cli.tmpl_reset")+"\n", path)
+		return 0
+
+	default:
+		fmt.Fprintln(stderr, i18n.T("cli.tmpl_usage"))
+		return 2
+	}
 }
 
 func cmdShowConfig() int {
@@ -301,9 +390,12 @@ func cmdAsk(request string) int {
 		return 1
 	}
 
+	client := llm.New(cfg.BaseURL, cfg.APIKey, cfg.Model, nil)
+	client.SystemTemplate = loadSystemTemplate()
+
 	s := &session{
 		cfg:      cfg,
-		client:   llm.New(cfg.BaseURL, cfg.APIKey, cfg.Model, nil),
+		client:   client,
 		store:    store,
 		prompter: ui.NewPrompter(stdin, stdout),
 		style:    ui.NewStyle(stdout),
