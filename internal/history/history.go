@@ -46,7 +46,10 @@ type Record struct {
 	// 旧记录可能缺少该字段，统计时按 1 次处理。
 	LLMCalls int    `json:"llm_calls,omitempty"`
 	Model    string `json:"model,omitempty"`
-	Error    string `json:"error,omitempty"` // 失败原因(网络错误等)
+	// ModelError 记录模型拒答时的原因(即 "Error:" 分支的内容)，
+	// 与执行失败 Error 区分开。
+	ModelError string `json:"model_error,omitempty"`
+	Error      string `json:"error,omitempty"` // 失败原因(网络错误等)
 }
 
 // Store 是历史记录的存储目录。

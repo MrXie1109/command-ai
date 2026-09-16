@@ -5,6 +5,28 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 与
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 约定。
 
+## [1.2.0] - 2026-09-16
+
+### Added
+
+- **显式的 `Command:` / `Error:` 回复协议**。模型必须标注每次回复：能生成命令时用
+  `Command: <命令>`，不能时用 `Error: <原因>`。只有 `Command:` 的回复可执行，
+  未标注的回复一律按错误处理。提示词要求模型对闲聊、问候、辱骂、交互式会话与
+  不安全请求使用 `Error:`。
+- **`Allow[N/e/r]` 提示**。`Error:` 回复没有可执行内容，因此提示中不提供 `y`；
+  输入 `y` 会被拒绝并给出说明，然后重新询问。`e` 解释为什么无法生成命令以及
+  如何改写需求，`n` 与 `r` 语义不变。
+- **终端彩色输出**——`Command:` 加粗、命令青色，`Error:` 加粗红色，提示黄色，
+  Token 汇总暗色。仅在 stdout 为终端时启用，并遵循 `NO_COLOR`(优先)、
+  `FORCE_COLOR`、`CLICOLOR_FORCE=1`。
+- 历史记录新增 `model_error` 字段，用于区分模型拒答与执行失败(`error`)。
+
+### Fixed
+
+- **拒答内容曾被当作命令执行**。模型回复 "I can't help with that." 这类文本时，
+  此前会被当成命令丢给 shell，产生 `unexpected EOF while looking for matching \'\'`
+  并以退出码 2 结束。
+
 ## [1.1.1] - 2026-09-16
 
 ### Added

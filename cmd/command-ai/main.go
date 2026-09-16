@@ -20,7 +20,7 @@ import (
 )
 
 // version 是当前版本号，构建时可通过 -ldflags 覆盖。
-var version = "1.1.1"
+var version = "1.2.0"
 
 // 标准流被抽成变量，便于在测试中替换。
 var (
@@ -256,9 +256,10 @@ type session struct {
 	client   *llm.Client
 	store    *history.Store
 	prompter *ui.Prompter
+	style    *ui.Style
 
 	request  string
-	command  string
+	reply    llm.Reply // 模型本次的结构化回复(命令或拒答原因)
 	feedback string
 
 	// total* 用于终端展示的会话累计值。
@@ -305,38 +306,52 @@ func cmdAsk(request string) int {
 		client:   llm.New(cfg.BaseURL, cfg.APIKey, cfg.Model, nil),
 		store:    store,
 		prompter: ui.NewPrompter(stdin, stdout),
+		style:    ui.NewStyle(stdout),
 		request:  request,
 	}
 	return s.run()
 }
 
 // run 驱动交互状态机。
+//
+//	输入 → Thinking → 模型回复
+//	                   ├─ Command: <命令> → Allow[y/N/e/r]
+//	                   │     ├─ y → 执行 → 输出 → Token
+//	                   │     ├─ n → 取消 → Token
+//	                   │     ├─ e → 解释命令 → Allow?(同一命令)
+//	                   │     └─ r → 重新生成 → Allow?
+//	                   └─ Error: <原因>   → Allow[N/e/r](没有命令可执行)
+//	                         ├─ n → 取消 → Token
+//	                         ├─ e → 解释原因 → Allow?
+//	                         └─ r → 重新生成 → Allow?
 func (s *session) run() int {
-	haveCommand := false // 是否需要(重新)生成命令
-	showCommand := false // 是否需要打印 Command: 行
+	haveReply := false // 是否需要(重新)请求模型
+	showReply := false // 是否需要打印 Command:/Error: 行
 	regens := 0
 
 	for {
-		// 1) 需要新命令时调用 LLM。
-		if !haveCommand {
-			cmdStr, err := s.generate()
+		// 1) 需要新回复时调用 LLM。
+		if !haveReply {
+			reply, err := s.generate()
 			if err != nil {
-				fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
+				fmt.Fprintf(stderr, s.style.Red(i18n.T("cli.err"))+"\n", err)
 				s.done()
 				return 1
 			}
-			s.command = cmdStr
-			haveCommand = true
-			showCommand = true
+			s.reply = reply
+			haveReply = true
+			showReply = true
 		}
 
-		// 2) 展示命令并询问用户。解释过同一命令时不重复打印 Command:。
-		if showCommand {
-			fmt.Fprintf(stdout, "Command: %s\n", s.command)
+		// 2) 展示回复并询问用户。解释过之后不重复展示。
+		if showReply {
+			s.showReply()
 		}
-		action, err := s.prompter.Ask()
+
+		// 模型拒答时没有可执行内容，提示中不提供 y。
+		action, err := s.prompter.Ask(s.reply.IsCommand())
 		if err != nil {
-			fmt.Fprintf(stderr, i18n.T("cli.read_input_failed")+"\n", err)
+			fmt.Fprintf(stderr, s.style.Red(i18n.T("cli.read_input_failed"))+"\n", err)
 			return 1
 		}
 
@@ -350,46 +365,59 @@ func (s *session) run() int {
 			return 0
 
 		case ui.ActionExplain:
-			// 解释之后回到 Allow 提示，命令保持不变、不重复展示。
+			// 解释之后回到提示，内容保持不变、不重复展示。
 			if err := s.explain(); err != nil {
-				fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
+				fmt.Fprintf(stderr, s.style.Red(i18n.T("cli.err"))+"\n", err)
 				s.done()
 				return 1
 			}
-			showCommand = false
+			showReply = false
 			continue
 
 		case ui.ActionRegen:
 			regens++
 			if regens > maxRegenerate {
-				fmt.Fprintf(stderr, i18n.T("cli.max_regen")+"\n", maxRegenerate)
+				fmt.Fprintf(stderr, s.style.Red(i18n.T("cli.max_regen"))+"\n", maxRegenerate)
 				s.done()
 				return 1
 			}
 			fb, err := s.prompter.AskFeedback()
 			if err != nil {
-				fmt.Fprintf(stderr, i18n.T("cli.read_input_failed")+"\n", err)
+				fmt.Fprintf(stderr, s.style.Red(i18n.T("cli.read_input_failed"))+"\n", err)
 				return 1
 			}
 			s.feedback = fb
 			s.append(s.buildRecord(history.ChoiceRegen, nil, ""))
-			haveCommand = false // 回到 Thinking 重新生成
+			haveReply = false // 回到 Thinking 重新生成
 			continue
 		}
 	}
 }
 
-// generate 调用 LLM 生成(或重新生成)一条命令，并累计 Token。
-func (s *session) generate() (string, error) {
+// showReply 按回复类型打印 "Command:" 或 "Error:" 行。
+func (s *session) showReply() {
+	if s.reply.IsCommand() {
+		fmt.Fprintln(stdout, s.style.Label(i18n.T("cli.command_label"), s.style.Cyan(s.reply.Text)))
+		return
+	}
+	text := s.reply.Text
+	if text == "" {
+		text = i18n.T("cli.empty_reply")
+	}
+	fmt.Fprintln(stdout, s.style.ErrorLine(i18n.T("cli.error_label"), text))
+}
+
+// generate 请求模型生成命令或说明拒答原因，并累计 Token。
+func (s *session) generate() (llm.Reply, error) {
 	s.verbosef(i18n.T("cli.vb_endpoint"), s.cfg.BaseURL, s.cfg.Model)
 	s.verbosef(i18n.T("cli.vb_request"), s.request)
-	if s.command != "" || s.feedback != "" {
-		s.verbosef(i18n.T("cli.vb_previous"), s.command, s.feedback)
+	if s.reply.Text != "" || s.feedback != "" {
+		s.verbosef(i18n.T("cli.vb_previous"), s.reply.Text, s.feedback)
 	}
 
 	sp := ui.NewSpinner(stdout, "Thinking")
 	sp.Start()
-	cmdStr, u, err := s.client.GenerateCommand(context.Background(), s.request, s.command, s.feedback)
+	reply, u, err := s.client.GenerateCommand(context.Background(), s.request, s.reply, s.feedback)
 	sp.Stop()
 
 	s.verbosef(i18n.T("cli.vb_tokens"), u.PromptTokens, u.CompletionTokens, u.TotalTokens)
@@ -397,19 +425,30 @@ func (s *session) generate() (string, error) {
 
 	if err != nil {
 		// 网络失败、鉴权失败等：给出友好提示，且不写入历史。
-		return "", err
+		return llm.Reply{}, err
 	}
-	if cmdStr == "" {
-		return "", errors.New(i18n.T("cli.no_command"))
+	// 未标注为 Command 的回复一律当作拒答，绝不执行。
+	if reply.IsCommand() && reply.Text == "" {
+		return llm.Reply{Kind: llm.KindError, Text: i18n.T("cli.unlabeled_reply")}, nil
 	}
-	return cmdStr, nil
+	return reply, nil
 }
 
-// explain 调用 LLM 解释当前命令并打印。
+// explain 解释当前回复：命令走命令解释，拒答走原因说明。
 func (s *session) explain() error {
 	sp := ui.NewSpinner(stdout, "Thinking")
 	sp.Start()
-	text, u, err := s.client.ExplainCommand(context.Background(), s.request, s.command)
+
+	var (
+		text string
+		u    llm.Usage
+		err  error
+	)
+	if s.reply.IsCommand() {
+		text, u, err = s.client.ExplainCommand(context.Background(), s.request, s.reply.Text)
+	} else {
+		text, u, err = s.client.ExplainError(context.Background(), s.request, s.reply.Text)
+	}
 	sp.Stop()
 
 	s.verbosef(i18n.T("cli.vb_explain"), u.PromptTokens, u.CompletionTokens)
@@ -444,19 +483,19 @@ func (s *session) execute() int {
 	ex := executor.New()
 	ex.Stdout = stdout
 	ex.Stderr = stderr
-	res, execErr := ex.Run(s.command)
+	res, execErr := ex.Run(s.reply.Text)
 
 	rec := s.buildRecord(history.ChoiceYes, res, "")
 	if execErr != nil {
 		rec.Error = execErr.Error()
 		s.append(rec)
-		fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", execErr)
+		fmt.Fprintf(stderr, s.style.Red(i18n.T("cli.err"))+"\n", execErr)
 		s.done()
 		return 1
 	}
 	s.append(rec)
 	if res.ExitCode != 0 {
-		fmt.Fprintf(stderr, i18n.T("cli.exit_code")+"\n", res.ExitCode)
+		fmt.Fprintf(stderr, s.style.Dim(i18n.T("cli.exit_code"))+"\n", res.ExitCode)
 	}
 	s.verbosef(i18n.T("cli.vb_duration"), res.Duration.Round(time.Millisecond), res.ExitCode)
 	s.verbosef(i18n.T("cli.vb_history"), s.store.Dir)
@@ -469,13 +508,18 @@ func (s *session) buildRecord(choice history.Choice, res *executor.Result, errMs
 	rec := history.Record{
 		Timestamp:    time.Now(),
 		Input:        s.request,
-		Command:      s.command,
 		Choice:       choice,
 		InputTokens:  s.pendingIn,
 		OutputTokens: s.pendingOut,
 		LLMCalls:     s.pendingCalls,
 		Model:        s.cfg.Model,
 		Error:        errMsg,
+	}
+	if s.reply.IsCommand() {
+		rec.Command = s.reply.Text
+	} else {
+		// 拒答不是执行失败，单独记录原因，便于事后区分。
+		rec.ModelError = s.reply.Text
 	}
 	// 用量已归入本条记录，清零以免在后续记录中重复计数。
 	s.pendingIn, s.pendingOut, s.pendingCalls = 0, 0, 0
@@ -502,7 +546,8 @@ func (s *session) done() {
 }
 
 func printTokenLine(in, out int) {
-	fmt.Fprintf(stdout, i18n.T("cli.token"), in, out)
+	style := ui.NewStyle(stdout)
+	fmt.Fprint(stdout, style.Dim(fmt.Sprintf(i18n.T("cli.token"), in, out)))
 }
 
 func printUsage(w io.Writer) {

@@ -5,6 +5,31 @@
 This project follows [Semantic Versioning](https://semver.org/) and the
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
+## [1.2.0] - 2026-09-16
+
+### Added
+
+- **Explicit `Command:` / `Error:` reply protocol.** The model must now label every reply:
+  `Command: <command>` when the request can be done with one command, `Error: <reason>`
+  when it cannot. Only a `Command:` reply is executable; an unlabelled reply is treated as
+  an error. The system prompt tells the model to use `Error:` for chit-chat, greetings,
+  insults, interactive sessions, and anything unsafe.
+- **`Allow[N/e/r]` prompt.** On an `Error:` reply there is nothing to run, so the prompt
+  omits `y`; pressing `y` is rejected with an explanation and the prompt repeats. `e`
+  explains why the request could not be turned into a command and how to rephrase it,
+  while `n` and `r` keep their usual meaning.
+- **Coloured console output** — bold/cyan `Command:`, bold red `Error:`, yellow prompt,
+  dim token summary. Colour is enabled only when stdout is a terminal and honours
+  `NO_COLOR` (wins), `FORCE_COLOR`, and `CLICOLOR_FORCE=1`.
+- `model_error` field in history records, distinguishing a model refusal from an execution
+  failure (`error`).
+
+### Fixed
+
+- **A refusal was executed as a command.** Replying `Error:`-style text such as
+  "I can't help with that." was previously treated as a command and handed to the shell,
+  producing `unexpected EOF while looking for matching \`\'\'` and exit code 2.
+
 ## [1.1.1] - 2026-09-16
 
 ### Added

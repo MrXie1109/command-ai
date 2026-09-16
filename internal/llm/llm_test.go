@@ -129,17 +129,17 @@ func TestGenerateCommandPromptRules(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		json.Unmarshal(body, &gotBody)
-		io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"ls $HOME"}}],"usage":{"prompt_tokens":1,"completion_tokens":1}}`)
+		io.WriteString(w, `{"choices":[{"message":{"role":"assistant","content":"Command: ls $HOME"}}],"usage":{"prompt_tokens":1,"completion_tokens":1}}`)
 	}))
 	defer srv.Close()
 
 	c := New(srv.URL, "k", "m", nil)
-	cmd, _, err := c.GenerateCommand(context.Background(), "列出家目录", "", "")
+	reply, _, err := c.GenerateCommand(context.Background(), "列出家目录", Reply{}, "")
 	if err != nil {
 		t.Fatalf("GenerateCommand: %v", err)
 	}
-	if cmd != "ls $HOME" {
-		t.Errorf("command = %q", cmd)
+	if !reply.IsCommand() || reply.Text != "ls $HOME" {
+		t.Errorf("reply = %+v, want Command ls $HOME", reply)
 	}
 	if len(gotBody.Messages) != 2 || gotBody.Messages[0].Role != "system" {
 		t.Fatalf("应包含 system + user 两条消息, got %+v", gotBody.Messages)
@@ -153,8 +153,12 @@ func TestGenerateCommandPromptRules(t *testing.T) {
 	if !strings.Contains(sys, "$HOME") {
 		t.Error("system 提示词应给出 $HOME 的可执行写法")
 	}
-	if !strings.Contains(sys, "ONLY the command") {
-		t.Error("system 提示词应要求只输出命令")
+	// 提示词必须要求用 Command:/Error: 两种形式显式标注回复。
+	if !strings.Contains(sys, "Command: <a single executable command>") {
+		t.Error("system 提示词应要求 Command: 形式")
+	}
+	if !strings.Contains(sys, "Error: <one short sentence") {
+		t.Error("system 提示词应要求 Error: 形式")
 	}
 	if !strings.Contains(gotBody.Messages[1].Content, "列出家目录") {
 		t.Error("user 消息应包含原始需求")
@@ -166,12 +170,13 @@ func TestGenerateCommandIncludesFeedbackOnRegenerate(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		body, _ := io.ReadAll(r.Body)
 		json.Unmarshal(body, &gotBody)
-		io.WriteString(w, `{"choices":[{"message":{"content":"ls -a $HOME"}}],"usage":{}}`)
+		io.WriteString(w, `{"choices":[{"message":{"content":"Command: ls -a $HOME"}}],"usage":{}}`)
 	}))
 	defer srv.Close()
 
 	c := New(srv.URL, "k", "m", nil)
-	if _, _, err := c.GenerateCommand(context.Background(), "列出家目录", "ls ~", "不要用 ~"); err != nil {
+	prev := Reply{Kind: KindCommand, Text: "ls ~"}
+	if _, _, err := c.GenerateCommand(context.Background(), "列出家目录", prev, "不要用 ~"); err != nil {
 		t.Fatalf("GenerateCommand: %v", err)
 	}
 
@@ -226,5 +231,104 @@ func TestCleanCommandFencedWithLanguageTag(t *testing.T) {
 func TestCleanCommandSingleBacktickWrapped(t *testing.T) {
 	if got := CleanCommand("`ls -la`"); got != "ls -la" {
 		t.Errorf("got %q, want %q", got, "ls -la")
+	}
+}
+
+func TestParseReplyCommand(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"Command: ls", "ls"},
+		{"command: ls", "ls"},
+		{"Command:ls", "ls"},
+		{"Command：ls", "ls"},
+		{"命令: ls", "ls"},
+		{"Command: ls -la\n", "ls -la"},
+		{"```\nCommand: ls\n```", "ls"},
+		{"Command:\nls", "ls"}, // 命令写在下一行
+	}
+	for _, c := range cases {
+		got := ParseReply(c.in)
+		if !got.IsCommand() {
+			t.Errorf("ParseReply(%q) 应为 Command, got %+v", c.in, got)
+			continue
+		}
+		if got.Text != c.want {
+			t.Errorf("ParseReply(%q).Text = %q, want %q", c.in, got.Text, c.want)
+		}
+	}
+}
+
+func TestParseReplyError(t *testing.T) {
+	cases := []struct{ in, want string }{
+		{"Error: 我无法执行这个请求。", "我无法执行这个请求。"},
+		{"error: I cannot help with that.", "I cannot help with that."},
+		{"Error：无法完成", "无法完成"},
+		{"错误: 无法完成", "无法完成"},
+		{"Error: 第一行\n第二行", "第一行 第二行"},
+	}
+	for _, c := range cases {
+		got := ParseReply(c.in)
+		if got.IsCommand() {
+			t.Errorf("ParseReply(%q) 不应为 Command", c.in)
+			continue
+		}
+		if got.Text != c.want {
+			t.Errorf("ParseReply(%q).Text = %q, want %q", c.in, got.Text, c.want)
+		}
+	}
+}
+
+// TestParseReplyUnlabeledIsError 是本次 bug 的核心回归防护：
+// 没有 Command: 前缀的回复绝不能被当成命令执行。
+func TestParseReplyUnlabeledIsError(t *testing.T) {
+	// 这正是用户遇到的那条回复。
+	for _, in := range []string{
+		"I can't help with that.",
+		"我无法帮你做这件事。",
+		"Sure! Here you go:",
+		"",
+		"   \n  ",
+	} {
+		got := ParseReply(in)
+		if got.IsCommand() {
+			t.Errorf("未标注的回复 %q 不应被当作命令执行, got %+v", in, got)
+		}
+	}
+}
+
+func TestParseReplyCommandWithEmptyBodyBecomesNonExecutable(t *testing.T) {
+	// "Command:" 后面什么都没有 => 视为拒答，交由上层处理。
+	got := ParseReply("Command:")
+	if got.IsCommand() && got.Text == "" {
+		t.Log("空命令由上层转换为 Error")
+	} else if got.IsCommand() {
+		t.Errorf("意外结果: %+v", got)
+	}
+}
+
+func TestExplainErrorSameLanguageRule(t *testing.T) {
+	var gotBody chatRequest
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		body, _ := io.ReadAll(r.Body)
+		json.Unmarshal(body, &gotBody)
+		io.WriteString(w, `{"choices":[{"message":{"content":"这个需求无法用单条命令完成。"}}],"usage":{"prompt_tokens":3,"completion_tokens":4}}`)
+	}))
+	defer srv.Close()
+
+	c := New(srv.URL, "k", "m", nil)
+	out, u, err := c.ExplainError(context.Background(), "陪我聊天", "这不是可以用单条命令完成的任务。")
+	if err != nil {
+		t.Fatalf("ExplainError: %v", err)
+	}
+	if out != "这个需求无法用单条命令完成。" {
+		t.Errorf("explain = %q", out)
+	}
+	if u.PromptTokens != 3 || u.CompletionTokens != 4 {
+		t.Errorf("usage = %+v", u)
+	}
+	if !strings.Contains(gotBody.Messages[0].Content, "SAME LANGUAGE") {
+		t.Error("解释拒答的 system 提示词应要求使用相同语言")
+	}
+	if !strings.Contains(gotBody.Messages[1].Content, "陪我聊天") {
+		t.Error("解释请求应包含原始需求")
 	}
 }

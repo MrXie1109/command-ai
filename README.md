@@ -34,6 +34,8 @@ You can pin it with `command-ai lang zh|en|auto`. See [Interface language](#inte
 - Ships as a single binary with no runtime dependencies
 - Bring your own LLM: any provider speaking the OpenAI Chat Completions protocol
 - Multi-turn interaction: confirm / cancel / explain / regenerate
+- Explicit `Command:` / `Error:` protocol: a refusal is never executed by accident
+- Coloured output on a terminal, with `NO_COLOR` and `FORCE_COLOR` support
 - Bilingual interface (English and Chinese) that follows your system locale
 - Lightweight config (YAML) and history (JSONL) with strict file permissions
 - Token usage statistics by time period
@@ -176,7 +178,13 @@ this month usage (2024-05-01 to 2024-05-17)
 
 ## Interaction
 
-After generating a command, the tool prompts with `Allow[y/N/e/r]`:
+The model answers in one of two explicitly labelled forms: `Command: <command>` when the
+request can be done with a single command, or `Error: <reason>` when it cannot (a
+greeting, an insult, something interactive, or anything unsafe). Only a `Command:` reply
+is ever executed — an unlabelled reply is treated as an error, so a refusal can never be
+handed to the shell by mistake.
+
+For a command the tool prompts with `Allow[y/N/e/r]`:
 
 | Input | Behaviour |
 |-------|-----------|
@@ -185,14 +193,29 @@ After generating a command, the tool prompts with `Allow[y/N/e/r]`:
 | `e` | Explain the command in the language of your request, then ask about the same command again |
 | `r` | Regenerate the command (you may add a feedback message), then ask again |
 
+When the model replies `Error:` there is nothing to run, so the prompt becomes
+`Allow[N/e/r]`:
+
+| Input | Behaviour |
+|-------|-----------|
+| `y` | Rejected — you are told there is no command, and the prompt is repeated |
+| `n` | Cancel (**pressing Enter alone means `n`**) |
+| `e` | Explain why the request cannot be done with one command, and how to rephrase it |
+| `r` | Ask the model again (you may add a feedback message) |
+
 Any other input is rejected and the prompt is repeated. The full flow:
 
 ```
-[input] → Thinking → generate command → Allow?
-                                          ├─ y → run → output → Token
-                                          ├─ n → cancel → Token
-                                          ├─ e → explain → Allow?
-                                          └─ r → regenerate → Allow?
+[input] → Thinking → model reply
+                      ├─ Command: <command> → Allow[y/N/e/r]
+                      │     ├─ y → run → output → Token
+                      │     ├─ n → cancel → Token
+                      │     ├─ e → explain command → Allow?
+                      │     └─ r → regenerate → Allow?
+                      └─ Error: <reason>   → Allow[N/e/r]  (no y)
+                            ├─ n → cancel → Token
+                            ├─ e → explain the reason → Allow?
+                            └─ r → regenerate → Allow?
 ```
 
 An example using `e` and `r`:
@@ -214,6 +237,26 @@ Token: 312/48
 > The system prompt tells the model explicitly that it is **not inside a shell** and cannot
 > use shell sugar such as `~` or aliases, so it emits directly executable forms like
 > `ls $HOME`.
+
+## Colours
+
+Output is coloured when stdout is a terminal:
+
+| Element | Style |
+|---------|-------|
+| `Command:` label | bold, command in cyan |
+| `Error:` label and text | bold red |
+| `Allow[...]` prompt | yellow |
+| `Token:` summary and diagnostics | dim |
+
+Colour is disabled automatically when the output is not a terminal, so pipes and log files
+stay clean. It also honours the usual environment variables:
+
+| Variable | Effect |
+|----------|--------|
+| `NO_COLOR` (non-empty) | Always disable colour, per [no-color.org](https://no-color.org); wins over the others |
+| `FORCE_COLOR` (non-empty) | Always enable colour, even when redirected to a file |
+| `CLICOLOR_FORCE=1` | Same as `FORCE_COLOR` |
 
 ## Interface language
 
@@ -324,6 +367,23 @@ One JSON record per line:
 }
 ```
 
+`command` is empty when the model refused; the reason is recorded in `model_error` instead,
+so a refusal is distinguishable from an execution failure (`error`):
+
+```json
+{
+  "timestamp": "2024-05-17T10:31:00+08:00",
+  "input": "tell me a joke",
+  "command": "",
+  "choice": "n",
+  "model_error": "讲笑话不是可以用单条命令完成的任务。",
+  "input_tokens": 464,
+  "output_tokens": 20,
+  "llm_calls": 1,
+  "model": "deepseek-flash"
+}
+```
+
 `input_tokens`, `output_tokens`, and `llm_calls` describe the usage of **that step only**,
 measured since the previous record, rather than a running session total. Summing all records
 therefore yields the true total and nothing is double-counted when you use `e` (explain) or
@@ -341,6 +401,8 @@ into the record that follows.
 | `COMMAND_AI_HOME` | Override the root directory for config and history (useful for isolation and testing) |
 | `COMMAND_AI_CONFIG` | Override only the config file path |
 | `LANG` / `LC_ALL` / `LC_MESSAGES` | Select the interface language; priority `LC_ALL` > `LC_MESSAGES` > `LANG` |
+| `NO_COLOR` | Disable coloured output |
+| `FORCE_COLOR` / `CLICOLOR_FORCE` | Force coloured output even when redirected |
 
 ## Project layout
 

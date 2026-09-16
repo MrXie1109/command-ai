@@ -180,9 +180,11 @@ var catalog = map[string]entry{
 	"executor.timeout":       {"command timed out after %s", "命令执行超时(%s)"},
 
 	// ---------- ui ----------
-	"ui.invalid_input":   {"invalid input %s, please enter y / n / e / r", "无效输入 %s，请输入 y / n / e / r"},
-	"ui.feedback_prompt": {"Feedback (optional, press Enter to skip): ", "Feedback (可选，回车跳过): "},
-	"ui.allow_prompt":    {"Allow[y/N/e/r] ", "Allow[y/N/e/r] "},
+	"ui.invalid_input":      {"invalid input %s, please enter y / n / e / r", "无效输入 %s，请输入 y / n / e / r"},
+	"ui.feedback_prompt":    {"Feedback (optional, press Enter to skip): ", "Feedback (可选，回车跳过): "},
+	"ui.allow_prompt":       {"Allow[y/N/e/r] ", "Allow[y/N/e/r] "},
+	"ui.allow_prompt_norun": {"Allow[N/e/r] ", "Allow[N/e/r] "},
+	"ui.no_command_hint":    {"there is no command to run; n cancels, e explains, r retries", "没有可执行的命令；n 取消、e 解释、r 重新生成"},
 
 	// ---------- usage ----------
 	"usage.unknown_period": {"unknown period %s; valid values: today, this-week, this-month, this-year, all",
@@ -216,6 +218,10 @@ var catalog = map[string]entry{
 	"cli.max_regen":         {"reached the maximum number of regenerations (%d), aborting", "已达到最大重新生成次数 (%d)，退出"},
 	"cli.exit_code":         {"(exit code %d)", "(退出码 %d)"},
 	"cli.no_command":        {"error: the model did not return an executable command", "错误: 模型没有返回可执行的命令"},
+	"cli.command_label":     {"Command:", "Command:"},
+	"cli.error_label":       {"Error:", "Error:"},
+	"cli.empty_reply":       {"the model returned an empty reply", "模型返回了空内容"},
+	"cli.unlabeled_reply":   {"the model did not label its reply as Command or Error, so nothing was executed", "模型没有把回复标注为 Command 或 Error，因此没有执行任何内容"},
 	"cli.token":             {"Token: %d/%d\n", "Token: %d/%d\n"},
 	"cli.lang_usage":        {"usage: command-ai lang [zh|en|auto]", "用法: command-ai lang [zh|en|auto]"},
 	"cli.lang_invalid":      {"error: language must be zh, en or auto", "错误: 语言只能是 zh、en 或 auto"},

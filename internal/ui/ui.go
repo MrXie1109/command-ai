@@ -96,21 +96,30 @@ type Prompter struct {
 	In  io.Reader
 	Out io.Writer
 
+	Style  *Style
 	reader *bufio.Reader
 }
 
-// NewPrompter 创建交互器。
+// NewPrompter 创建交互器。颜色根据 out 是否为终端自动决定。
 func NewPrompter(in io.Reader, out io.Writer) *Prompter {
-	return &Prompter{In: in, Out: out, reader: bufio.NewReader(in)}
+	return &Prompter{In: in, Out: out, Style: NewStyle(out), reader: bufio.NewReader(in)}
 }
 
-// Ask 显示 "Allow[y/N/e/r] " 并读取一个选择。
+// Ask 显示交互提示并读取一个选择。
+//
+// allowRun 为 false 表示当前没有可执行内容(模型拒答)，此时显示
+// "Allow[N/e/r]" 且不接受 y —— 拒答文本绝不会被当作命令执行。
 //
 // 空输入默认为 n(取消)；无法识别的输入会再次提示。
 // 输入流结束时返回 ActionNo，保证程序安全退出。
-func (p *Prompter) Ask() (Action, error) {
+func (p *Prompter) Ask(allowRun bool) (Action, error) {
 	for {
-		fmt.Fprint(p.Out, i18n.T("ui.allow_prompt"))
+		if allowRun {
+			fmt.Fprint(p.Out, p.Style.Yellow(i18n.T("ui.allow_prompt")))
+		} else {
+			fmt.Fprint(p.Out, p.Style.Yellow(i18n.T("ui.allow_prompt_norun")))
+		}
+
 		line, err := p.reader.ReadString('\n')
 		if err != nil && line == "" {
 			if errors.Is(err, io.EOF) {
@@ -122,6 +131,10 @@ func (p *Prompter) Ask() (Action, error) {
 
 		switch strings.ToLower(strings.TrimSpace(line)) {
 		case string(ActionYes), "yes":
+			if !allowRun {
+				fmt.Fprintln(p.Out, p.Style.Dim(i18n.T("ui.no_command_hint")))
+				continue
+			}
 			return ActionYes, nil
 		case "", string(ActionNo), "no":
 			return ActionNo, nil

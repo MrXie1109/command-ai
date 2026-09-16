@@ -31,6 +31,8 @@ Token: 128/12
 - 单二进制分发，无运行时依赖
 - 用户自备 LLM：兼容 OpenAI Chat Completions 协议的服务商均可
 - 多轮交互：确认 / 取消 / 解释 / 重新生成
+- 显式的 `Command:` / `Error:` 协议：拒答内容不会被误当作命令执行
+- 终端彩色输出，支持 `NO_COLOR` 与 `FORCE_COLOR`
 - 界面中英双语，自动跟随系统语言环境
 - 轻量配置(YAML)与历史(JSONL)，文件权限严格
 - 按时间维度统计 Token 消耗
@@ -210,6 +212,25 @@ Token: 312/48
 > 提示词中已明确告知模型它**不在 shell 中**，无法使用 `~`、别名等 shell 语法糖，
 > 因此它会输出 `ls $HOME` 这类可直接执行的形式。
 
+## 控制台颜色
+
+stdout 是终端时输出带颜色：
+
+| 元素 | 样式 |
+|------|------|
+| `Command:` 标签 | 加粗，命令本身为青色 |
+| `Error:` 标签与正文 | 加粗红色 |
+| `Allow[...]` 提示 | 黄色 |
+| `Token:` 汇总与诊断信息 | 暗色 |
+
+输出被重定向(管道、日志文件)时自动关闭颜色，不会污染内容。同时遵循通用环境变量：
+
+| 变量 | 作用 |
+|------|------|
+| `NO_COLOR`(非空) | 始终关闭颜色，遵循 [no-color.org](https://no-color.org)，优先于其他变量 |
+| `FORCE_COLOR`(非空) | 始终开启颜色，即使被重定向到文件 |
+| `CLICOLOR_FORCE=1` | 等同于 `FORCE_COLOR` |
+
 ## 界面语言
 
 界面提供**中文**与**英文**两种语言，不会出现其他语言。
@@ -314,6 +335,22 @@ verbose: false
 }
 ```
 
+模型拒答时 `command` 为空，原因记在 `model_error` 字段，便于与执行失败 `error` 区分：
+
+```json
+{
+  "timestamp": "2024-05-17T10:31:00+08:00",
+  "input": "讲个笑话",
+  "command": "",
+  "choice": "n",
+  "model_error": "讲笑话不是可以用单条命令完成的任务。",
+  "input_tokens": 464,
+  "output_tokens": 20,
+  "llm_calls": 1,
+  "model": "deepseek-flash"
+}
+```
+
 `input_tokens` / `output_tokens` / `llm_calls` 记录的是**自上一条记录以来**这一步的用量，
 而不是整个会话的累计值。这样把所有记录相加就等于真实总量，使用 `e`(解释)或
 `r`(重新生成)时也不会重复计数。“解释”不单独成一条记录，其消耗会并入随后的那条记录。
@@ -329,6 +366,8 @@ verbose: false
 | `COMMAND_AI_HOME` | 覆盖配置与历史数据的存放根目录(便于测试与隔离) |
 | `COMMAND_AI_CONFIG` | 仅覆盖配置文件路径 |
 | `LANG` / `LC_ALL` / `LC_MESSAGES` | 选择界面语言，优先级 `LC_ALL` > `LC_MESSAGES` > `LANG` |
+| `NO_COLOR` | 关闭彩色输出 |
+| `FORCE_COLOR` / `CLICOLOR_FORCE` | 强制彩色输出，即使被重定向 |
 
 ## 项目结构
 

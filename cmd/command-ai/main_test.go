@@ -15,23 +15,42 @@ import (
 	"time"
 
 	"github.com/command-ai/command-ai/internal/history"
+	"github.com/command-ai/command-ai/internal/i18n"
 )
 
 // fakeLLM 是一个可编程的假 LLM 服务。
 type fakeLLM struct {
-	mu       sync.Mutex
-	replies  []string // 依次返回的命令
-	explain  string   // 解释文本
-	calls    int
-	lastBody map[string]any
-	usage    map[string]int
+	mu           sync.Mutex
+	replies      []string // 依次返回的回复
+	explain      string   // 解释“命令”的文本
+	explainError string   // 解释“拒答原因”的文本
+	calls        int
+	lastBody     map[string]any
+	usage        map[string]int
 }
 
+// rawPrefix 让测试可以发送未经标注的原始回复。
+const rawPrefix = "raw|"
+
+// newFakeLLM 构造假 LLM。replies 若未带 Command:/Error: 标签，
+// 会自动补上 "Command: " 前缀，方便测试直接写命令。
 func newFakeLLM(replies ...string) *fakeLLM {
+	for i, r := range replies {
+		if strings.HasPrefix(r, rawPrefix) {
+			replies[i] = strings.TrimPrefix(r, rawPrefix)
+			continue
+		}
+		low := strings.ToLower(r)
+		if !strings.HasPrefix(low, "command:") && !strings.HasPrefix(low, "error:") &&
+			!strings.HasPrefix(low, "命令:") && !strings.HasPrefix(low, "错误:") {
+			replies[i] = "Command: " + r
+		}
+	}
 	return &fakeLLM{
-		replies: replies,
-		explain: "该命令会列出文件。",
-		usage:   map[string]int{"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
+		replies:      replies,
+		explain:      "该命令会列出文件。",
+		explainError: "该需求无法用单条命令完成，请拆分后再试。",
+		usage:        map[string]int{"prompt_tokens": 10, "completion_tokens": 5, "total_tokens": 15},
 	}
 }
 
@@ -47,17 +66,21 @@ func (f *fakeLLM) handler() http.HandlerFunc {
 		f.lastBody = req
 
 		msgs, _ := req["messages"].([]any)
-		isExplain := false
+		isExplain, isExplainError := false, false
 		if len(msgs) > 0 {
 			if sys, ok := msgs[0].(map[string]any); ok {
 				if s, _ := sys["content"].(string); strings.Contains(s, "You explain shell commands") {
 					isExplain = true
+				} else if strings.Contains(s, "could not be") {
+					isExplainError = true
 				}
 			}
 		}
 
 		content := f.explain
-		if !isExplain {
+		if isExplainError {
+			content = f.explainError
+		} else if !isExplain {
 			idx := f.calls - 1
 			if idx < 0 {
 				idx = 0
@@ -66,7 +89,7 @@ func (f *fakeLLM) handler() http.HandlerFunc {
 				idx = len(f.replies) - 1
 			}
 			if len(f.replies) == 0 {
-				content = "ls"
+				content = "Command: ls"
 			} else {
 				content = f.replies[idx]
 			}
@@ -886,5 +909,174 @@ func TestAllowPromptIsStable(t *testing.T) {
 				t.Errorf("LANG=%s 时缺少固定格式 %q:\n%s", loc, want, out)
 			}
 		}
+	}
+}
+
+// ---------- Command / Error 协议 ----------
+
+// TestErrorReplyIsNotExecuted 这是本次 bug 的核心回归测试。
+//
+// 模型拒答时，绝不能被当成命令执行(此前 "I can't help with that." 会被丢给
+// shell，产生 "unexpected EOF while looking for matching `”" 之类的报错)。
+func TestErrorReplyIsNotExecuted(t *testing.T) {
+	llm := newFakeLLM("Error: I can't help with that.")
+	srv := httptest.NewServer(llm.handler())
+	defer srv.Close()
+	env := setup(t, srv.URL, "n\n")
+
+	code := run([]string{"fuck you!"})
+	if code != 0 {
+		t.Fatalf("退出码 = %d", code)
+	}
+	out := env.stdout.String()
+	if !strings.Contains(out, "Error: I can't help with that.") {
+		t.Errorf("应展示 Error 行, got:\n%s", out)
+	}
+	if strings.Contains(out, "Command: I can't") {
+		t.Errorf("拒答不应被当作命令展示:\n%s", out)
+	}
+	if !strings.Contains(out, "Allow[N/e/r]") {
+		t.Errorf("拒答应使用 Allow[N/e/r] 提示:\n%s", out)
+	}
+	if strings.Contains(out, "Allow[y/N/e/r]") {
+		t.Errorf("拒答时不应提供 y 选项:\n%s", out)
+	}
+	if strings.Contains(env.stderr.String(), "unexpected EOF") {
+		t.Errorf("不应把拒答丢给 shell 执行, stderr:\n%s", env.stderr.String())
+	}
+}
+
+// TestErrorReplyRejectsYesThenCancels 在拒答提示下输入 y 应被拒绝，n 才生效。
+func TestErrorReplyRejectsYesThenCancels(t *testing.T) {
+	llm := newFakeLLM("Error: 我无法执行这个请求。")
+	srv := httptest.NewServer(llm.handler())
+	defer srv.Close()
+	// 先 y(应被拒绝)，再 n。
+	env := setup(t, srv.URL, "y\nn\n")
+
+	if code := run([]string{"陪我聊天"}); code != 0 {
+		t.Fatalf("退出码 = %d", code)
+	}
+	out := env.stdout.String()
+	if n := strings.Count(out, "Allow[N/e/r]"); n != 2 {
+		t.Errorf("y 被拒绝后应再次提示, 期望 2 次, got %d:\n%s", n, out)
+	}
+	if !strings.Contains(out, i18n.T("ui.no_command_hint")) {
+		t.Errorf("应提示没有可执行命令:\n%s", out)
+	}
+
+	recs := env.records(t)
+	if len(recs) != 1 {
+		t.Fatalf("应记录 1 条, got %d: %+v", len(recs), recs)
+	}
+	if recs[0].Choice != history.ChoiceNo {
+		t.Errorf("choice = %q, want n", recs[0].Choice)
+	}
+	if recs[0].Command != "" {
+		t.Errorf("拒答时不应记录命令, got %q", recs[0].Command)
+	}
+	if recs[0].ModelError == "" {
+		t.Error("应记录模型拒答原因到 model_error")
+	}
+	if recs[0].ExitCode != nil {
+		t.Error("未执行时不应有退出码")
+	}
+}
+
+// TestErrorReplyExplainAndRegenerate 拒答时 e 与 r 仍可用。
+func TestErrorReplyExplainAndRegenerate(t *testing.T) {
+	// 第一次拒答，重新生成后给出命令。
+	llm := newFakeLLM("Error: 无法用单条命令完成。", "echo recovered")
+	srv := httptest.NewServer(llm.handler())
+	defer srv.Close()
+	env := setup(t, srv.URL, "e\nr\n\nn\n")
+
+	code := run([]string{"复杂需求"})
+	if code != 0 {
+		t.Fatalf("退出码 = %d, stderr=%s", code, env.stderr)
+	}
+	out := env.stdout.String()
+	// 解释拒答：使用的是解释拒答的文案，而不是解释命令的文案
+	if !strings.Contains(out, llm.explainError) {
+		t.Errorf("e 应给出拒答解释, got:\n%s", out)
+	}
+	if strings.Contains(out, llm.explain) {
+		t.Errorf("拒答时不应走“解释命令”分支:\n%s", out)
+	}
+	// 解释后仍无命令，仍是 Allow[N/e/r]
+	if strings.Contains(out, "Allow[y/N/e/r]") && !strings.Contains(out, "Command: echo recovered") {
+		t.Errorf("拒答阶段不应出现含 y 的提示:\n%s", out)
+	}
+	// 重新生成后得到命令，此时才出现 Command: 与 y 选项
+	if !strings.Contains(out, "Command: echo recovered") {
+		t.Errorf("重新生成后应展示命令:\n%s", out)
+	}
+	if !strings.Contains(out, "Allow[y/N/e/r]") {
+		t.Errorf("有命令时应提供 y 选项:\n%s", out)
+	}
+
+	// 历史里应有一条 r(拒答) 和一条 n(命令阶段取消)
+	recs := env.records(t)
+	var sawErrRegen bool
+	for _, r := range recs {
+		if r.Choice == history.ChoiceRegen && r.ModelError != "" {
+			sawErrRegen = true
+		}
+	}
+	if !sawErrRegen {
+		t.Errorf("应记录拒答状态下的 r, got %+v", recs)
+	}
+}
+
+// TestUnlabeledReplyIsNotExecuted 未标注的回复同样不执行(fail-safe)。
+func TestUnlabeledReplyIsNotExecuted(t *testing.T) {
+	llm := newFakeLLM(rawPrefix + "Sure, here is what you asked for.")
+	srv := httptest.NewServer(llm.handler())
+	defer srv.Close()
+	env := setup(t, srv.URL, "n\n")
+
+	if code := run([]string{"做点什么"}); code != 0 {
+		t.Fatalf("退出码 = %d", code)
+	}
+	out := env.stdout.String()
+	if strings.Contains(out, "Allow[y/N/e/r]") {
+		t.Errorf("未标注的回复不应提供 y 选项:\n%s", out)
+	}
+	if !strings.Contains(out, "Error:") {
+		t.Errorf("未标注的回复应作为 Error 展示:\n%s", out)
+	}
+}
+
+// TestCommandLabelIsStableAcrossLocales Command:/Error:/Token: 不随语言变化。
+func TestCommandAndErrorLabelsAreStable(t *testing.T) {
+	llm := newFakeLLM("echo hi")
+	srv := httptest.NewServer(llm.handler())
+	defer srv.Close()
+
+	for _, loc := range []string{"en_US.UTF-8", "zh_CN.UTF-8"} {
+		env := setup(t, srv.URL, "n\n")
+		setLocale(t, loc)
+		env.stdout.Reset()
+		run([]string{"hi"})
+		out := env.stdout.String()
+		for _, want := range []string{"Command: echo hi", "Allow[y/N/e/r]", "Token: 10/5"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("LANG=%s 时缺少固定格式 %q:\n%s", loc, want, out)
+			}
+		}
+	}
+}
+
+// TestNoAnsiEscapesWhenPiped 输出被重定向(测试即缓冲)时不应有颜色转义。
+func TestNoAnsiEscapesWhenPiped(t *testing.T) {
+	llm := newFakeLLM("echo hi")
+	srv := httptest.NewServer(llm.handler())
+	defer srv.Close()
+	env := setup(t, srv.URL, "y\n")
+
+	run([]string{"hi"})
+	out := env.stdout.String() + env.stderr.String()
+	if strings.Contains(out, "\033[") {
+		t.Errorf("非终端输出不应包含 ANSI 转义:\n%q", out)
 	}
 }
