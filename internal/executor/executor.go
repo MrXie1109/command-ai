@@ -17,6 +17,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/command-ai/command-ai/internal/i18n"
 )
 
 // DefaultTimeout 是命令执行的默认超时时间，0 表示不限制。
@@ -70,7 +72,7 @@ func shellCommand(command string) (string, []string) {
 func (e *Executor) Run(command string) (*Result, error) {
 	command = strings.TrimSpace(command)
 	if command == "" {
-		return nil, errors.New("命令为空")
+		return nil, errors.New(i18n.T("executor.empty_command"))
 	}
 
 	ctx := context.Background()
@@ -112,7 +114,7 @@ func (e *Executor) Run(command string) (*Result, error) {
 		// 超时优先级最高：CommandContext 杀进程后返回的同样是 ExitError，
 		// 若不先判断 ctx，超时会被误报成普通的非 0 退出码。
 		if ctx.Err() == context.DeadlineExceeded {
-			return res, fmt.Errorf("命令执行超时（%s）", e.Timeout)
+			return res, fmt.Errorf(i18n.T("executor.timeout"), e.Timeout)
 		}
 		var ee *exec.ExitError
 		if errors.As(err, &ee) {

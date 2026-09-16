@@ -12,6 +12,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/command-ai/command-ai/internal/i18n"
 )
 
 // Choice 是用户在某次交互中的最终选择。
@@ -73,7 +74,7 @@ func New(dir string) (*Store, error) {
 		dir = DefaultDir()
 	}
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return nil, fmt.Errorf("创建历史目录失败: %w", err)
+		return nil, fmt.Errorf(i18n.T("history.mkdir_failed"), err)
 	}
 	// MkdirAll 对已存在目录不改变权限，这里确保一次。
 	if err := os.Chmod(dir, 0o700); err != nil && !os.IsPermission(err) {
@@ -96,7 +97,7 @@ func (s *Store) Append(rec Record) error {
 
 	data, err := json.Marshal(rec)
 	if err != nil {
-		return fmt.Errorf("序列化历史记录失败: %w", err)
+		return fmt.Errorf(i18n.T("history.marshal_failed"), err)
 	}
 	data = append(data, '\n')
 
@@ -106,12 +107,12 @@ func (s *Store) Append(rec Record) error {
 	path := s.pathFor(rec.Timestamp)
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_APPEND, 0o600)
 	if err != nil {
-		return fmt.Errorf("打开历史文件失败 %s: %w", path, err)
+		return fmt.Errorf(i18n.T("history.open_failed"), path, err)
 	}
 	defer f.Close()
 
 	if _, err := f.Write(data); err != nil {
-		return fmt.Errorf("写入历史记录失败: %w", err)
+		return fmt.Errorf(i18n.T("history.write_failed"), err)
 	}
 	return nil
 }
@@ -125,7 +126,7 @@ func (s *Store) LoadRange(from, to time.Time) ([]Record, error) {
 		if os.IsNotExist(err) {
 			return nil, nil
 		}
-		return nil, fmt.Errorf("读取历史目录失败: %w", err)
+		return nil, fmt.Errorf(i18n.T("history.readdir_failed"), err)
 	}
 
 	from = truncateDay(from)
@@ -154,7 +155,7 @@ func (s *Store) LoadRange(from, to time.Time) ([]Record, error) {
 func (s *Store) loadFile(path string) ([]Record, error) {
 	f, err := os.Open(path)
 	if err != nil {
-		return nil, fmt.Errorf("打开历史文件失败 %s: %w", path, err)
+		return nil, fmt.Errorf(i18n.T("history.open_failed"), path, err)
 	}
 	defer f.Close()
 
@@ -173,7 +174,7 @@ func (s *Store) loadFile(path string) ([]Record, error) {
 		recs = append(recs, rec)
 	}
 	if err := sc.Err(); err != nil {
-		return nil, fmt.Errorf("读取历史文件失败 %s: %w", path, err)
+		return nil, fmt.Errorf(i18n.T("history.scan_failed"), path, err)
 	}
 	return recs, nil
 }

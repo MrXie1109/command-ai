@@ -111,7 +111,7 @@ func TestChatHandlesEmptyChoices(t *testing.T) {
 func TestChatWithoutAPIKey(t *testing.T) {
 	c := New("http://127.0.0.1:1", "", "m", nil)
 	_, _, err := c.Chat(context.Background(), nil)
-	if err == nil || !strings.Contains(err.Error(), "API Key") {
+	if err == nil || !strings.Contains(err.Error(), "api-key") {
 		t.Errorf("缺少 API Key 应给出可操作提示, got %v", err)
 	}
 }
@@ -119,7 +119,7 @@ func TestChatWithoutAPIKey(t *testing.T) {
 func TestChatWithoutModel(t *testing.T) {
 	c := New("http://127.0.0.1:1", "k", "", nil)
 	_, _, err := c.Chat(context.Background(), nil)
-	if err == nil || !strings.Contains(err.Error(), "模型") {
+	if err == nil || !strings.Contains(err.Error(), "model") {
 		t.Errorf("缺少模型应给出可操作提示, got %v", err)
 	}
 }

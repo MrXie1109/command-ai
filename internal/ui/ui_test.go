@@ -120,10 +120,18 @@ func TestIsTerminalOnBuffer(t *testing.T) {
 	}
 }
 
-func TestQuotedKeepsUnicode(t *testing.T) {
-	// 使用自实现的引号包裹，避免 %q 把中文转义成 \uXXXX。
-	if got := quoted("你好"); got != "\"你好\"" {
-		t.Errorf("quoted = %q", got)
+func TestInvalidInputKeepsUnicodeReadable(t *testing.T) {
+	// 非法输入回显时不应把非 ASCII 字符转义成 \uXXXX。
+	var out bytes.Buffer
+	p := NewPrompter(strings.NewReader("中文\nn\n"), &out)
+	if _, err := p.Ask(); err != nil {
+		t.Fatalf("Ask: %v", err)
+	}
+	if !strings.Contains(out.String(), "中文") {
+		t.Errorf("非法输入应原样回显, got %q", out.String())
+	}
+	if strings.Contains(out.String(), `\u`) {
+		t.Errorf("不应出现 \\uXXXX 转义, got %q", out.String())
 	}
 }
 

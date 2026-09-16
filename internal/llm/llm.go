@@ -13,6 +13,8 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/command-ai/command-ai/internal/i18n"
 )
 
 const (
@@ -78,10 +80,10 @@ type chatResponse struct {
 func (c *Client) Chat(ctx context.Context, messages []Message) (string, Usage, error) {
 	var usage Usage
 	if c.APIKey == "" {
-		return "", usage, errors.New("未配置 API Key，请先执行: command-ai api-key <key>")
+		return "", usage, errors.New(i18n.T("llm.no_api_key"))
 	}
 	if c.Model == "" {
-		return "", usage, errors.New("未配置模型，请先执行: command-ai model <name>")
+		return "", usage, errors.New(i18n.T("llm.no_model"))
 	}
 
 	body, err := json.Marshal(chatRequest{
@@ -91,40 +93,40 @@ func (c *Client) Chat(ctx context.Context, messages []Message) (string, Usage, e
 		Stream:      false,
 	})
 	if err != nil {
-		return "", usage, fmt.Errorf("构造请求失败: %w", err)
+		return "", usage, fmt.Errorf(i18n.T("llm.build_failed"), err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.BaseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return "", usage, fmt.Errorf("构造请求失败: %w", err)
+		return "", usage, fmt.Errorf(i18n.T("llm.build_failed"), err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+c.APIKey)
 
 	resp, err := c.HTTP.Do(req)
 	if err != nil {
-		return "", usage, fmt.Errorf("请求 LLM 失败: %w", err)
+		return "", usage, fmt.Errorf(i18n.T("llm.request_failed"), err)
 	}
 	defer resp.Body.Close()
 
 	data, err := io.ReadAll(io.LimitReader(resp.Body, 4<<20))
 	if err != nil {
-		return "", usage, fmt.Errorf("读取响应失败: %w", err)
+		return "", usage, fmt.Errorf(i18n.T("llm.read_failed"), err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", usage, fmt.Errorf("LLM 返回错误 (%d): %s", resp.StatusCode, extractError(data))
+		return "", usage, fmt.Errorf(i18n.T("llm.http_error"), resp.StatusCode, extractError(data))
 	}
 
 	var cr chatResponse
 	if err := json.Unmarshal(data, &cr); err != nil {
-		return "", usage, fmt.Errorf("解析响应失败: %w", err)
+		return "", usage, fmt.Errorf(i18n.T("llm.parse_failed"), err)
 	}
 	if cr.Error != nil && cr.Error.Message != "" {
-		return "", cr.Usage, fmt.Errorf("LLM 返回错误: %s", cr.Error.Message)
+		return "", cr.Usage, fmt.Errorf(i18n.T("llm.api_error"), cr.Error.Message)
 	}
 	if len(cr.Choices) == 0 {
-		return "", cr.Usage, errors.New("LLM 未返回任何结果")
+		return "", cr.Usage, errors.New(i18n.T("llm.no_choices"))
 	}
 	return strings.TrimSpace(cr.Choices[0].Message.Content), cr.Usage, nil
 }
@@ -140,7 +142,7 @@ func extractError(data []byte) string {
 	}
 	s := strings.TrimSpace(string(data))
 	if s == "" {
-		return "(空响应)"
+		return i18n.T("llm.empty_response")
 	}
 	return s
 }

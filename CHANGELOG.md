@@ -3,6 +3,30 @@
 本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 与
 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 约定。
 
+## [1.1.0] - 2024-05-17
+
+### Added
+
+- **界面双语（中文 / 英文）**
+  - 新增 `internal/i18n`：全部用户可见文案集中管理，中英各一份
+  - 自动按 POSIX 优先级读取 `LC_ALL` > `LC_MESSAGES` > `LANG` 判定语言；
+    `zh*` 为中文，`C`/`POSIX`/未设置/其他语言一律回退英文
+  - 新增 `language` 配置项与 `command-ai lang [zh|en|auto]` 子命令；
+    配置中的显式设置优先于环境变量，便于在 `LANG=C` 的 cron/容器中固定语言
+  - `command-ai config` 显示当前语言及其来源
+  - 帮助、用法、报错、统计标签、verbose 诊断信息全部随语言切换
+  - 测试新增源码扫描，确保所有 `i18n.T(...)` 用到的文案 key 都已在中英两边定义
+
+### Changed
+
+- 非中文语言环境（如 `LANG=C`）下界面由中文改为英文；此前无论 locale 一律输出中文
+- 「解释」的语言规则不变：始终与用户需求的自然语言一致，与界面语言无关
+
+### Notes
+
+- `Command:`、`Token:`、`Thinking`、`Allow[y/N/e/r]` 属项目书规定的固定输出格式，不随语言变化
+- 内部错误信息（配置、历史、LLM、执行器）也一并纳入双语
+
 ## [1.0.0] - 2024-05-17
 
 首个正式版本，实现项目书的全部里程碑（M1–M6）。
@@ -49,4 +73,5 @@
 - 配置与历史文件权限在 Unix 下为 `0600`
 - 本工具不提供沙箱、白名单或危险命令拦截；执行前的 `Allow` 确认是唯一兜底
 
+[1.1.0]: https://github.com/command-ai/command-ai/releases/tag/v1.1.0
 [1.0.0]: https://github.com/command-ai/command-ai/releases/tag/v1.0.0

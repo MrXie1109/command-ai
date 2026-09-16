@@ -10,27 +10,32 @@ import (
 	"runtime"
 
 	"gopkg.in/yaml.v3"
+
+	"github.com/command-ai/command-ai/internal/i18n"
 )
 
 // 配置项的默认值。
 const (
-	DefaultBaseURL = "https://api.deepseek.com"
-	DefaultModel   = "deepseek-flash"
+	DefaultBaseURL  = "https://api.deepseek.com"
+	DefaultModel    = "deepseek-flash"
+	DefaultLanguage = "auto"
 )
 
 // Config 对应 config.yaml 的内容。
 type Config struct {
-	BaseURL string `yaml:"base_url"`
-	APIKey  string `yaml:"api_key"`
-	Model   string `yaml:"model"`
-	Verbose bool   `yaml:"verbose"`
+	BaseURL  string `yaml:"base_url"`
+	APIKey   string `yaml:"api_key"`
+	Model    string `yaml:"model"`
+	Language string `yaml:"language"` // auto | zh | en
+	Verbose  bool   `yaml:"verbose"`
 }
 
 // New 返回一份带默认值的配置。
 func New() *Config {
 	return &Config{
-		BaseURL: DefaultBaseURL,
-		Model:   DefaultModel,
+		BaseURL:  DefaultBaseURL,
+		Model:    DefaultModel,
+		Language: DefaultLanguage,
 	}
 }
 
@@ -67,10 +72,10 @@ func Load(path string) (*Config, error) {
 		if os.IsNotExist(err) {
 			return cfg, nil
 		}
-		return nil, fmt.Errorf("读取配置文件失败: %w", err)
+		return nil, fmt.Errorf(i18n.T("config.read_failed"), err)
 	}
 	if err := yaml.Unmarshal(data, cfg); err != nil {
-		return nil, fmt.Errorf("解析配置文件失败 %s: %w", path, err)
+		return nil, fmt.Errorf(i18n.T("config.parse_failed"), path, err)
 	}
 	cfg.normalize()
 	return cfg, nil
@@ -84,6 +89,9 @@ func (c *Config) normalize() {
 	if c.Model == "" {
 		c.Model = DefaultModel
 	}
+	if c.Language == "" {
+		c.Language = DefaultLanguage
+	}
 }
 
 // Save 把配置写入 path，目录与文件权限分别为 0700 / 0600。
@@ -95,12 +103,12 @@ func (c *Config) Save(path string) error {
 
 	data, err := yaml.Marshal(c)
 	if err != nil {
-		return fmt.Errorf("序列化配置失败: %w", err)
+		return fmt.Errorf(i18n.T("config.marshal_failed"), err)
 	}
 
 	dir := filepath.Dir(path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("创建配置目录失败: %w", err)
+		return fmt.Errorf(i18n.T("config.mkdir_failed"), err)
 	}
 
 	// 先写临时文件再改名，避免写入过程中断导致配置损坏。
@@ -110,11 +118,11 @@ func (c *Config) Save(path string) error {
 	}
 	if err := os.Rename(tmp, path); err != nil {
 		os.Remove(tmp)
-		return fmt.Errorf("写入配置文件失败: %w", err)
+		return fmt.Errorf(i18n.T("config.save_failed"), err)
 	}
 	// Rename 会保留临时文件的权限，这里再确保一次。
 	if err := os.Chmod(path, 0o600); err != nil && runtime.GOOS != "windows" {
-		return fmt.Errorf("设置配置文件权限失败: %w", err)
+		return fmt.Errorf(i18n.T("config.chmod_failed"), err)
 	}
 	return nil
 }
@@ -123,11 +131,11 @@ func (c *Config) Save(path string) error {
 func writeFile0600(path string, data []byte) error {
 	f, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o600)
 	if err != nil {
-		return fmt.Errorf("创建文件失败 %s: %w", path, err)
+		return fmt.Errorf(i18n.T("config.create_failed"), path, err)
 	}
 	defer f.Close()
 	if _, err := f.Write(data); err != nil {
-		return fmt.Errorf("写入文件失败 %s: %w", path, err)
+		return fmt.Errorf(i18n.T("config.write_failed"), path, err)
 	}
 	return nil
 }
@@ -140,7 +148,7 @@ func (c *Config) Masked() string {
 // MaskKey 对 API Key 脱敏，用于任何可能被打印或记录的场合。
 func MaskKey(key string) string {
 	if key == "" {
-		return "(未设置)"
+		return i18n.T("config.key_unset")
 	}
 	if len(key) <= 4 {
 		return "****"

@@ -12,6 +12,8 @@ import (
 	"time"
 
 	"golang.org/x/term"
+
+	"github.com/command-ai/command-ai/internal/i18n"
 )
 
 // Spinner 是一个单行旋转动画。
@@ -97,9 +99,6 @@ type Prompter struct {
 	reader *bufio.Reader
 }
 
-// quoted 给字符串加上双引号，避免 %q 转义非 ASCII 字符。
-func quoted(s string) string { return "\"" + s + "\"" }
-
 // NewPrompter 创建交互器。
 func NewPrompter(in io.Reader, out io.Writer) *Prompter {
 	return &Prompter{In: in, Out: out, reader: bufio.NewReader(in)}
@@ -111,7 +110,7 @@ func NewPrompter(in io.Reader, out io.Writer) *Prompter {
 // 输入流结束时返回 ActionNo，保证程序安全退出。
 func (p *Prompter) Ask() (Action, error) {
 	for {
-		fmt.Fprint(p.Out, "Allow[y/N/e/r] ")
+		fmt.Fprint(p.Out, i18n.T("ui.allow_prompt"))
 		line, err := p.reader.ReadString('\n')
 		if err != nil && line == "" {
 			if errors.Is(err, io.EOF) {
@@ -131,7 +130,7 @@ func (p *Prompter) Ask() (Action, error) {
 		case string(ActionRegen), "regen", "regenerate":
 			return ActionRegen, nil
 		default:
-			fmt.Fprintf(p.Out, "无效输入 %s，请输入 y / n / e / r\n", quoted(strings.TrimSpace(line)))
+			fmt.Fprintf(p.Out, i18n.T("ui.invalid_input")+"\n", i18n.Quote(strings.TrimSpace(line)))
 		}
 	}
 }
@@ -139,7 +138,7 @@ func (p *Prompter) Ask() (Action, error) {
 // AskFeedback 在“重新生成”时询问可选的补充说明。
 // 直接回车表示没有额外反馈。
 func (p *Prompter) AskFeedback() (string, error) {
-	fmt.Fprint(p.Out, "Feedback (可选，回车跳过): ")
+	fmt.Fprint(p.Out, i18n.T("ui.feedback_prompt"))
 	line, err := p.reader.ReadString('\n')
 	if err != nil && line == "" && !errors.Is(err, io.EOF) {
 		return "", err

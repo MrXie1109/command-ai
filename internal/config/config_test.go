@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 	"runtime"
 	"testing"
+
+	"github.com/command-ai/command-ai/internal/i18n"
 )
 
 func TestNewDefaults(t *testing.T) {
@@ -137,7 +139,7 @@ func TestLoadInvalidYAML(t *testing.T) {
 
 func TestMaskKey(t *testing.T) {
 	cases := []struct{ in, want string }{
-		{"", "(未设置)"},
+		{"", i18n.T("config.key_unset")},
 		{"abc", "****"},
 		{"abcd", "****"},
 		{"sk-1234567890", "sk-1****"},

@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/command-ai/command-ai/internal/history"
+	"github.com/command-ai/command-ai/internal/i18n"
 )
 
 // Period 是统计的时间范围。
@@ -36,7 +37,7 @@ func ParsePeriod(s string) (Period, error) {
 			return p, nil
 		}
 	}
-	return "", fmt.Errorf("未知的统计周期 %q，可选值: today, this-week, this-month, this-year, all", s)
+	return "", fmt.Errorf(i18n.T("usage.unknown_period"), i18n.Quote(s))
 }
 
 // Range 返回周期对应的起止时间（本地时区，含端点当天）。
@@ -117,15 +118,15 @@ func Collect(store *history.Store, p Period, now time.Time) (Stats, error) {
 func PeriodLabel(p Period) string {
 	switch p {
 	case Today:
-		return "今日"
+		return i18n.T("usage.period.today")
 	case ThisWeek:
-		return "本周"
+		return i18n.T("usage.period.this_week")
 	case ThisMonth:
-		return "本月"
+		return i18n.T("usage.period.this_month")
 	case ThisYear:
-		return "本年"
+		return i18n.T("usage.period.this_year")
 	case All:
-		return "全部"
+		return i18n.T("usage.period.all")
 	default:
 		return string(p)
 	}
@@ -133,14 +134,16 @@ func PeriodLabel(p Period) string {
 
 // Write 以固定格式输出统计结果。
 func (s Stats) Write(w io.Writer) {
-	fmt.Fprintf(w, "%s用量", PeriodLabel(s.Period))
 	if s.Period != All {
-		fmt.Fprintf(w, "（%s ~ %s）", s.From.Format("2006-01-02"), s.To.Format("2006-01-02"))
+		fmt.Fprintf(w, i18n.T("usage.title_range"), PeriodLabel(s.Period),
+			s.From.Format("2006-01-02"), s.To.Format("2006-01-02"))
+	} else {
+		fmt.Fprintf(w, i18n.T("usage.title_plain"), PeriodLabel(s.Period))
 	}
 	fmt.Fprintln(w)
-	fmt.Fprintf(w, "  请求次数:     %d\n", s.Requests)
-	fmt.Fprintf(w, "  INPUT Token:  %d\n", s.InputTokens)
-	fmt.Fprintf(w, "  OUTPUT Token: %d\n", s.OutputTokens)
-	fmt.Fprintf(w, "  合计 Token:   %d\n", s.Total())
-	fmt.Fprintf(w, "  实际执行:     %d\n", s.Executed)
+	fmt.Fprintf(w, i18n.T("usage.line.requests"), s.Requests)
+	fmt.Fprintf(w, i18n.T("usage.line.input"), s.InputTokens)
+	fmt.Fprintf(w, i18n.T("usage.line.output"), s.OutputTokens)
+	fmt.Fprintf(w, i18n.T("usage.line.total"), s.Total())
+	fmt.Fprintf(w, i18n.T("usage.line.executed"), s.Executed)
 }

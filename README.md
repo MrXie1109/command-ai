@@ -13,10 +13,47 @@ Allow[y/N/e/r] y
 Token: 128/12
 ```
 
+界面语言会自动跟随 `LANG` / `LC_ALL` / `LC_MESSAGES`：`zh*` 显示中文，其余（含 `C`、`POSIX`、
+未设置）显示英文。也可以用 `command-ai lang zh|en|auto` 固定语言。详见[界面语言](#界面语言)。
+
 > [!WARNING]
 > 本项目**不提供任何安全防护**：没有沙箱、没有白名单、没有危险命令拦截。
 > 它假设你清楚自己在做什么，并自行承担执行命令的后果。
 > `Allow[y/N/e/r]` 确认环节是唯一的兜底，请务必看清命令再按 `y`。
+
+---
+
+## English
+
+`command-ai` turns a natural-language request into a shell command, shows it to you for
+confirmation, and then runs it. It ships as a single Go binary with no runtime dependencies.
+
+> [!WARNING]
+> This tool provides **no safety net**: no sandbox, no allowlist, no dangerous-command
+> filtering. It assumes you understand the risk of running commands. The
+> `Allow[y/N/e/r]` confirmation is the only safeguard — always read the command before
+> pressing `y`.
+
+```bash
+# Build
+go build -o command-ai ./cmd/command-ai
+
+# Configure (any OpenAI Chat Completions compatible provider)
+command-ai base-url https://api.deepseek.com
+command-ai api-key sk-xxxxxxxxxxxxxxxxxxxx
+command-ai model deepseek-flash
+
+# Use
+command-ai "list the files in the current directory"
+```
+
+The interface language follows `LANG` / `LC_ALL` / `LC_MESSAGES`: anything starting with
+`zh` selects Chinese, everything else (including `C`, `POSIX`, and unset) selects English.
+Pin it with `command-ai lang en` (or `zh`, or `auto`). Explanations are always written in
+the language of your request, not the interface language.
+
+Run `LANG=C command-ai help` for the full English help. The Chinese sections below document
+every command in detail.
 
 ---
 
@@ -26,6 +63,7 @@ Token: 128/12
 - 单二进制分发，无运行时依赖
 - 用户自备 LLM：兼容 OpenAI Chat Completions 协议的服务商均可
 - 多轮交互：确认 / 取消 / 解释 / 重新生成
+- 界面中英双语，自动跟随系统语言环境
 - 轻量配置（YAML）与历史（JSONL），文件权限严格
 - 按时间维度统计 Token 消耗
 
@@ -103,6 +141,7 @@ command-ai 帮我列出家目录下的文件
 | `command-ai base-url <url>` | 设置 LLM 服务商 Base URL |
 | `command-ai api-key <key>` | 设置 API Key |
 | `command-ai model <name>` | 设置模型名称 |
+| `command-ai lang [zh\|en\|auto]` | 查看或设置界面语言 |
 | `command-ai verbose` | 切换详细输出模式 |
 | `command-ai config` | 查看当前配置（Key 脱敏） |
 
@@ -179,6 +218,71 @@ Token: 312/48
 > 提示词中已明确告知模型它**不在 shell 中**，无法使用 `~`、别名等 shell 语法糖，
 > 因此它会输出 `ls $HOME` 这类可直接执行的形式。
 
+## 界面语言
+
+界面提供**中文**与**英文**两种语言，不会出现其他语言。
+
+### 自动判定
+
+启动时按 POSIX 优先级读取语言环境变量：
+
+```
+LC_ALL  >  LC_MESSAGES  >  LANG
+```
+
+取值形如 `zh_CN.UTF-8`、`en_US.UTF-8@euro`、`C`、`POSIX`：
+
+| 取值 | 界面语言 |
+|------|----------|
+| 以 `zh` 开头（`zh`、`zh_CN`、`zh-TW`、`zh_Hans`…） | 中文 |
+| `C`、`POSIX` | 英文（C locale 惯例） |
+| 其他任何语言（`en_US`、`fr_FR`、`ja_JP`…） | 英文 |
+| 未设置 | 英文 |
+
+```bash
+$ LANG=C command-ai usage
+today usage (2024-05-17 to 2024-05-17)
+  Requests:      6
+  INPUT tokens:  2561
+  OUTPUT tokens: 529
+  Total tokens:  3090
+  Executed:      3
+
+$ LANG=zh_CN.UTF-8 command-ai usage
+今日用量（2024-05-17 ~ 2024-05-17）
+  请求次数:     6
+  INPUT Token:  2561
+  OUTPUT Token: 529
+  合计 Token:   3090
+  实际执行:     3
+```
+
+### 手动指定
+
+如果 `LANG` 不可靠（例如 cron、容器里往往是 `C`），可以在配置中固定语言：
+
+```bash
+command-ai lang zh     # 固定中文
+command-ai lang en     # 固定英文
+command-ai lang auto   # 恢复跟随环境变量
+command-ai lang        # 查看当前语言及来源
+```
+
+配置里的显式设置**优先于**环境变量，这样即使 `LANG=C` 也能保持中文。
+写入 `config.yaml` 的 `language` 字段：
+
+```yaml
+language: auto   # auto | zh | en
+```
+
+### 与「解释」语言的区别
+
+界面语言只影响提示、帮助与报错文案。`e` 分支的命令解释始终使用**与你的需求相同的语言**，
+与界面语言无关：用英文提问就得到英文解释，用中文提问就得到中文解释。
+
+> `Command:`、`Token:`、`Thinking`、`Allow[y/N/e/r]` 是项目书规定的固定输出格式，
+> 不随语言变化。
+
 ## 配置与数据
 
 ### 配置文件
@@ -189,6 +293,7 @@ Token: 312/48
 base_url: https://api.deepseek.com
 api_key: sk-xxxxxxxxxxxxxxxxxxxx
 model: deepseek-flash
+language: auto   # auto | zh | en
 verbose: false
 ```
 
@@ -231,6 +336,7 @@ verbose: false
 |------|------|
 | `COMMAND_AI_HOME` | 覆盖配置与历史数据的存放根目录（便于测试与隔离） |
 | `COMMAND_AI_CONFIG` | 仅覆盖配置文件路径 |
+| `LANG` / `LC_ALL` / `LC_MESSAGES` | 选择界面语言，优先级 `LC_ALL` > `LC_MESSAGES` > `LANG` |
 
 ## 项目结构
 
@@ -243,6 +349,7 @@ command-ai/
 ├── internal/
 │   ├── config/              # 配置读写（YAML，0600）
 │   ├── history/             # 历史记录（JSONL，按天分文件）
+│   ├── i18n/                # 中英文文案与语言环境判定
 │   ├── llm/                 # LLM 客户端与提示词
 │   ├── executor/            # 命令执行与输出捕获
 │   ├── ui/                  # spin 动画与 Allow 提示

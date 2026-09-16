@@ -86,14 +86,23 @@ type testEnv struct {
 	restore func()
 }
 
+// setLocale 固定语言环境，使断言不依赖运行机器的 LANG。
+func setLocale(t *testing.T, loc string) {
+	t.Helper()
+	t.Setenv("LC_ALL", "")
+	t.Setenv("LC_MESSAGES", "")
+	t.Setenv("LANG", loc)
+}
+
 // setup 把配置目录、历史目录与标准流全部重定向到临时空间。
 func setup(t *testing.T, llmURL, input string) *testEnv {
 	t.Helper()
 
+	setLocale(t, "zh_CN.UTF-8")
 	home := t.TempDir()
 	t.Setenv("COMMAND_AI_HOME", home)
 
-	cfg := "base_url: " + llmURL + "\napi_key: sk-test\nmodel: test-model\nverbose: false\n"
+	cfg := "base_url: " + llmURL + "\napi_key: sk-test\nmodel: test-model\nlanguage: zh\nverbose: false\n"
 	if err := os.WriteFile(filepath.Join(home, "config.yaml"), []byte(cfg), 0o600); err != nil {
 		t.Fatal(err)
 	}
@@ -122,6 +131,7 @@ func (e *testEnv) records(t *testing.T) []history.Record {
 }
 
 func TestRunVersionAndHelp(t *testing.T) {
+	setLocale(t, "zh_CN.UTF-8")
 	var out bytes.Buffer
 	oldOut := stdout
 	stdout = &out
@@ -146,6 +156,7 @@ func TestRunVersionAndHelp(t *testing.T) {
 }
 
 func TestRunNoArgsPrintsUsage(t *testing.T) {
+	setLocale(t, "zh_CN.UTF-8")
 	var out bytes.Buffer
 	oldOut := stdout
 	stdout = &out
@@ -661,7 +672,7 @@ func TestVerboseModePrintsDiagnostics(t *testing.T) {
 		t.Fatalf("退出码 = %d", code)
 	}
 	out := env.stdout.String()
-	for _, want := range []string{"chat/completions", "tokens:", "耗时", "历史目录"} {
+	for _, want := range []string{"chat/completions", "Token:", "耗时", "历史目录"} {
 		if !strings.Contains(out, want) {
 			t.Errorf("verbose 输出缺少 %q:\n%s", want, out)
 		}
@@ -682,5 +693,198 @@ func TestNonVerboseIsQuiet(t *testing.T) {
 	run([]string{"打个招呼"})
 	if strings.Contains(env.stdout.String(), "chat/completions") {
 		t.Errorf("非 verbose 模式不应输出诊断信息:\n%s", env.stdout.String())
+	}
+}
+
+// ---------- 语言（i18n） ----------
+
+// runCaptured 在指定语言环境下执行一次命令并返回输出。
+func runCaptured(t *testing.T, loc string, args ...string) (string, string) {
+	t.Helper()
+	setLocale(t, loc)
+	var out, errBuf bytes.Buffer
+	oldOut, oldErr := stdout, stderr
+	stdout, stderr = &out, &errBuf
+	defer func() { stdout, stderr = oldOut, oldErr }()
+	run(args)
+	return out.String(), errBuf.String()
+}
+
+// TestHelpFollowsLocale help 应随 LANG 切换语言。
+func TestHelpFollowsLocale(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("COMMAND_AI_HOME", home)
+
+	en, _ := runCaptured(t, "en_US.UTF-8", "help")
+	if !strings.Contains(en, "generate and run shell commands") {
+		t.Errorf("LANG=en 时 help 应为英文:\n%s", en)
+	}
+	if strings.Contains(en, "用法:") {
+		t.Errorf("LANG=en 时不应出现中文:\n%s", en)
+	}
+
+	zh, _ := runCaptured(t, "zh_CN.UTF-8", "help")
+	if !strings.Contains(zh, "用自然语言生成并执行 shell 命令") {
+		t.Errorf("LANG=zh 时 help 应为中文:\n%s", zh)
+	}
+	if strings.Contains(zh, "generate and run shell commands") {
+		t.Errorf("LANG=zh 时不应出现英文正文:\n%s", zh)
+	}
+}
+
+// TestLocaleDefaultsToEnglishWhenUnset 未设置 LANG（C locale）时使用英文。
+func TestLocaleDefaultsToEnglishWhenUnset(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("COMMAND_AI_HOME", home)
+
+	for _, loc := range []string{"", "C", "POSIX", "fr_FR.UTF-8"} {
+		out, _ := runCaptured(t, loc, "help")
+		if !strings.Contains(out, "generate and run shell commands") {
+			t.Errorf("LANG=%q 时应回退英文:\n%s", loc, out)
+		}
+	}
+}
+
+// TestConfigLanguageOverridesLocale 配置中的显式语言优先于环境变量。
+func TestConfigLanguageOverridesLocale(t *testing.T) {
+	llm := newFakeLLM("echo hi")
+	srv := httptest.NewServer(llm.handler())
+	defer srv.Close()
+	env := setup(t, srv.URL, "y\n")
+
+	// setup 默认写入 language: zh；这里改成 en，同时把环境设成中文。
+	cfgPath := filepath.Join(env.home, "config.yaml")
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "language: zh") {
+		t.Fatalf("setup 应写入 language: zh:\n%s", data)
+	}
+	if err := os.WriteFile(cfgPath, []byte(strings.Replace(string(data), "language: zh", "language: en", 1)), 0o600); err != nil {
+		t.Fatal(err)
+	}
+
+	setLocale(t, "zh_CN.UTF-8")
+	env.stdout.Reset()
+	if code := run([]string{"usage"}); code != 0 {
+		t.Fatalf("退出码 = %d", code)
+	}
+	out := env.stdout.String()
+	if !strings.Contains(out, "Requests") {
+		t.Errorf("配置 language=en 应压过 LANG=zh:\n%s", out)
+	}
+	if strings.Contains(out, "请求次数") {
+		t.Errorf("配置 language=en 时不应输出中文:\n%s", out)
+	}
+}
+
+// TestLangCommand 覆盖 lang 子命令。
+func TestLangCommand(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("COMMAND_AI_HOME", home)
+
+	// 默认 auto：显示当前语言、配置来源与环境来源。
+	out, _ := runCaptured(t, "zh_CN.UTF-8", "lang")
+	if !strings.Contains(out, "中文") || !strings.Contains(out, "auto") {
+		t.Errorf("lang 应显示状态, got:\n%s", out)
+	}
+
+	// 设置为 en。
+	out, _ = runCaptured(t, "zh_CN.UTF-8", "lang", "en")
+	if !strings.Contains(out, "language = en") {
+		t.Errorf("应回显设置结果, got:\n%s", out)
+	}
+	// 已落盘。
+	data, err := os.ReadFile(filepath.Join(home, "config.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), "language: en") {
+		t.Errorf("language 未写入配置:\n%s", data)
+	}
+
+	// 显式 en 立即生效，即使 LANG=zh。
+	out, _ = runCaptured(t, "zh_CN.UTF-8", "usage")
+	if !strings.Contains(out, "Requests") {
+		t.Errorf("language=en 应生效:\n%s", out)
+	}
+
+	// 非法取值应被拒绝。
+	_, errOut := runCaptured(t, "en_US.UTF-8", "lang", "klingon")
+	if !strings.Contains(errOut, "zh, en or auto") {
+		t.Errorf("非法语言应给出提示, got:\n%s", errOut)
+	}
+}
+
+// TestUsageLabelsFollowLocale usage 统计标签应随语言切换。
+func TestUsageLabelsFollowLocale(t *testing.T) {
+	llm := newFakeLLM("echo counted")
+	srv := httptest.NewServer(llm.handler())
+	defer srv.Close()
+	env := setup(t, srv.URL, "y\n")
+
+	if code := run([]string{"count"}); code != 0 {
+		t.Fatalf("退出码 = %d", code)
+	}
+
+	// 切到英文后查看统计。
+	cfgPath := filepath.Join(env.home, "config.yaml")
+	data, _ := os.ReadFile(cfgPath)
+	os.WriteFile(cfgPath, []byte(strings.Replace(string(data), "language: zh", "language: en", 1)), 0o600)
+
+	env.stdout.Reset()
+	run([]string{"usage", "all"})
+	out := env.stdout.String()
+	for _, want := range []string{"all-time usage", "Requests:", "INPUT tokens:", "OUTPUT tokens:", "Total tokens:", "Executed:"} {
+		if !strings.Contains(out, want) {
+			t.Errorf("英文统计缺少 %q:\n%s", want, out)
+		}
+	}
+	if strings.Contains(out, "请求次数") {
+		t.Errorf("英文模式下不应出现中文标签:\n%s", out)
+	}
+}
+
+// TestErrorMessagesAreLocalized 错误提示也应本地化，并保持可操作。
+func TestErrorMessagesAreLocalized(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("COMMAND_AI_HOME", home)
+	// 不写配置 => 缺少 API Key。
+	oldIn := stdin
+	stdin = strings.NewReader("y\n")
+	defer func() { stdin = oldIn }()
+
+	_, en := runCaptured(t, "en_US.UTF-8", "do something")
+	if !strings.Contains(en, "error:") || !strings.Contains(en, "api-key") {
+		t.Errorf("英文错误提示不正确:\n%s", en)
+	}
+	if strings.Contains(en, "错误") {
+		t.Errorf("英文模式下不应出现中文错误:\n%s", en)
+	}
+
+	_, zh := runCaptured(t, "zh_CN.UTF-8", "做点什么")
+	if !strings.Contains(zh, "错误:") || !strings.Contains(zh, "api-key") {
+		t.Errorf("中文错误提示不正确:\n%s", zh)
+	}
+}
+
+// TestAllowPromptIsStable 项目书规定的交互标记不随语言变化。
+func TestAllowPromptIsStable(t *testing.T) {
+	llm := newFakeLLM("echo hi")
+	srv := httptest.NewServer(llm.handler())
+	defer srv.Close()
+
+	for _, loc := range []string{"en_US.UTF-8", "zh_CN.UTF-8"} {
+		env := setup(t, srv.URL, "y\n")
+		setLocale(t, loc)
+		env.stdout.Reset()
+		run([]string{"hi"})
+		out := env.stdout.String()
+		for _, want := range []string{"Command: echo hi", "Allow[y/N/e/r]", "Token: 10/5"} {
+			if !strings.Contains(out, want) {
+				t.Errorf("LANG=%s 时缺少固定格式 %q:\n%s", loc, want, out)
+			}
+		}
 	}
 }

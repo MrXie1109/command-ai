@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/command-ai/command-ai/internal/history"
+	"github.com/command-ai/command-ai/internal/i18n"
 )
 
 func TestParsePeriod(t *testing.T) {
@@ -137,6 +138,8 @@ func TestCollectReadsHistoryFromDisk(t *testing.T) {
 }
 
 func TestStatsWrite(t *testing.T) {
+	i18n.SetLang(i18n.ZH)
+	defer i18n.SetLang(i18n.EN)
 	from := time.Date(2024, 5, 13, 0, 0, 0, 0, time.Local)
 	to := time.Date(2024, 5, 15, 0, 0, 0, 0, time.Local)
 	st := Stats{Period: ThisWeek, From: from, To: to, Requests: 3, InputTokens: 100, OutputTokens: 40, Executed: 2}
@@ -153,6 +156,8 @@ func TestStatsWrite(t *testing.T) {
 }
 
 func TestPeriodLabel(t *testing.T) {
+	i18n.SetLang(i18n.ZH)
+	defer i18n.SetLang(i18n.EN)
 	if got := PeriodLabel(Today); got != "今日" {
 		t.Errorf("PeriodLabel(Today) = %q", got)
 	}

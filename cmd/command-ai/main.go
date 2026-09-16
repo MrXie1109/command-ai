@@ -13,13 +13,14 @@ import (
 	"github.com/command-ai/command-ai/internal/config"
 	"github.com/command-ai/command-ai/internal/executor"
 	"github.com/command-ai/command-ai/internal/history"
+	"github.com/command-ai/command-ai/internal/i18n"
 	"github.com/command-ai/command-ai/internal/llm"
 	"github.com/command-ai/command-ai/internal/ui"
 	"github.com/command-ai/command-ai/internal/usage"
 )
 
 // version 是当前版本号，构建时可通过 -ldflags 覆盖。
-var version = "1.0.0"
+var version = "1.1.0"
 
 // 标准流被抽成变量，便于在测试中替换。
 var (
@@ -36,6 +37,13 @@ func main() {
 }
 
 func run(args []string) int {
+	// 先按环境变量（LC_ALL / LC_MESSAGES / LANG）选择语言，保证即使配置
+	// 读取失败，错误提示也是可读的；随后用配置中的显式设置覆盖。
+	i18n.SetLang(i18n.Detect())
+	if cfg, _, err := loadConfig(); err == nil {
+		i18n.SetLang(i18n.Resolve(cfg.Language))
+	}
+
 	if len(args) == 0 {
 		printUsage(stdout)
 		return 0
@@ -78,6 +86,8 @@ func run(args []string) int {
 		})
 	case "verbose":
 		return cmdVerbose()
+	case "lang", "language":
+		return cmdLang(rest)
 	case "usage":
 		return cmdUsage(rest)
 	case "config":
@@ -107,22 +117,22 @@ func loadConfig() (*config.Config, string, error) {
 // cmdSetConfig 是 base-url / api-key / model 三个设置命令的通用实现。
 func cmdSetConfig(name string, args []string, apply func(*config.Config, string) error) int {
 	if len(args) == 0 {
-		fmt.Fprintf(stderr, "用法: command-ai %s <值>\n", name)
+		fmt.Fprintf(stderr, i18n.T("cli.usage_set")+"\n", name)
 		return 2
 	}
 	value := strings.Join(args, " ")
 
 	cfg, path, err := loadConfig()
 	if err != nil {
-		fmt.Fprintf(stderr, "错误: %v\n", err)
+		fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
 		return 1
 	}
 	if err := apply(cfg, value); err != nil {
-		fmt.Fprintf(stderr, "错误: %v\n", err)
+		fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
 		return 2
 	}
 	if err := cfg.Save(path); err != nil {
-		fmt.Fprintf(stderr, "错误: %v\n", err)
+		fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
 		return 1
 	}
 
@@ -132,35 +142,81 @@ func cmdSetConfig(name string, args []string, apply func(*config.Config, string)
 		shown = config.MaskKey(value)
 	}
 	fmt.Fprintf(stdout, "%s = %s\n", name, shown)
-	fmt.Fprintf(stdout, "已保存到 %s\n", path)
+	fmt.Fprintf(stdout, i18n.T("cli.saved_to")+"\n", path)
 	return 0
 }
 
 func cmdVerbose() int {
 	cfg, path, err := loadConfig()
 	if err != nil {
-		fmt.Fprintf(stderr, "错误: %v\n", err)
+		fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
 		return 1
 	}
 	cfg.Verbose = !cfg.Verbose
 	if err := cfg.Save(path); err != nil {
-		fmt.Fprintf(stderr, "错误: %v\n", err)
+		fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "verbose = %t\n", cfg.Verbose)
+	fmt.Fprintf(stdout, i18n.T("cli.verbose_status")+"\n", cfg.Verbose)
+	return 0
+}
+
+// cmdLang 查看或设置界面语言。
+//
+//	command-ai lang            显示当前语言及来源
+//	command-ai lang zh|en|auto 设置语言（auto 表示跟随 LANG 等环境变量）
+func cmdLang(args []string) int {
+	cfg, path, err := loadConfig()
+	if err != nil {
+		fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
+		return 1
+	}
+
+	if len(args) == 0 {
+		effective := i18n.Resolve(cfg.Language)
+		fmt.Fprintf(stdout, i18n.T("cli.lang_status")+"\n",
+			i18n.LangName(effective), cfg.Language, i18n.LangName(i18n.Detect()))
+		return 0
+	}
+
+	want := strings.ToLower(strings.TrimSpace(args[0]))
+	switch want {
+	case "zh", "en", "auto":
+	default:
+		fmt.Fprintln(stderr, i18n.T("cli.lang_invalid"))
+		fmt.Fprintln(stderr, i18n.T("cli.lang_usage"))
+		return 2
+	}
+
+	cfg.Language = want
+	if err := cfg.Save(path); err != nil {
+		fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
+		return 1
+	}
+
+	// 立即切换，使本次输出使用新语言。
+	i18n.SetLang(i18n.Resolve(want))
+	fmt.Fprintf(stdout, i18n.T("cli.lang_set")+"\n", want)
+	if want == i18n.LangAuto {
+		fmt.Fprintf(stdout, i18n.T("cli.lang_status")+"\n",
+			i18n.LangName(i18n.Current()), want, i18n.LangName(i18n.Detect()))
+	}
+	fmt.Fprintf(stdout, i18n.T("cli.saved_to")+"\n", path)
 	return 0
 }
 
 func cmdShowConfig() int {
 	cfg, path, err := loadConfig()
 	if err != nil {
-		fmt.Fprintf(stderr, "错误: %v\n", err)
+		fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
 		return 1
 	}
-	fmt.Fprintf(stdout, "配置文件: %s\n", path)
+	effective := i18n.Resolve(cfg.Language)
+	fmt.Fprintf(stdout, i18n.T("cli.config_path")+"\n", path)
 	fmt.Fprintf(stdout, "base_url: %s\n", cfg.BaseURL)
 	fmt.Fprintf(stdout, "api_key:  %s\n", cfg.Masked())
 	fmt.Fprintf(stdout, "model:    %s\n", cfg.Model)
+	fmt.Fprintf(stdout, i18n.T("cli.config_language")+"\n", cfg.Language, i18n.LangName(effective))
 	fmt.Fprintf(stdout, "verbose:  %t\n", cfg.Verbose)
 	return 0
 }
@@ -174,18 +230,18 @@ func cmdUsage(args []string) int {
 	}
 	period, err := usage.ParsePeriod(arg)
 	if err != nil {
-		fmt.Fprintf(stderr, "错误: %v\n", err)
+		fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
 		return 2
 	}
 
 	store, err := history.New(history.DefaultDir())
 	if err != nil {
-		fmt.Fprintf(stderr, "错误: %v\n", err)
+		fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
 		return 1
 	}
 	st, err := usage.Collect(store, period, time.Now())
 	if err != nil {
-		fmt.Fprintf(stderr, "错误: %v\n", err)
+		fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
 		return 1
 	}
 	st.Write(stdout)
@@ -234,13 +290,13 @@ func cmdAsk(request string) int {
 
 	cfg, _, err := loadConfig()
 	if err != nil {
-		fmt.Fprintf(stderr, "错误: %v\n", err)
+		fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
 		return 1
 	}
 
 	store, err := history.New(history.DefaultDir())
 	if err != nil {
-		fmt.Fprintf(stderr, "错误: %v\n", err)
+		fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
 		return 1
 	}
 
@@ -265,7 +321,7 @@ func (s *session) run() int {
 		if !haveCommand {
 			cmdStr, err := s.generate()
 			if err != nil {
-				fmt.Fprintf(stderr, "错误: %v\n", err)
+				fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
 				s.done()
 				return 1
 			}
@@ -280,7 +336,7 @@ func (s *session) run() int {
 		}
 		action, err := s.prompter.Ask()
 		if err != nil {
-			fmt.Fprintf(stderr, "错误: 读取输入失败: %v\n", err)
+			fmt.Fprintf(stderr, i18n.T("cli.read_input_failed")+"\n", err)
 			return 1
 		}
 
@@ -296,7 +352,7 @@ func (s *session) run() int {
 		case ui.ActionExplain:
 			// 解释之后回到 Allow 提示，命令保持不变、不重复展示。
 			if err := s.explain(); err != nil {
-				fmt.Fprintf(stderr, "错误: %v\n", err)
+				fmt.Fprintf(stderr, i18n.T("cli.err")+"\n", err)
 				s.done()
 				return 1
 			}
@@ -306,13 +362,13 @@ func (s *session) run() int {
 		case ui.ActionRegen:
 			regens++
 			if regens > maxRegenerate {
-				fmt.Fprintf(stderr, "已达到最大重新生成次数 (%d)，退出\n", maxRegenerate)
+				fmt.Fprintf(stderr, i18n.T("cli.max_regen")+"\n", maxRegenerate)
 				s.done()
 				return 1
 			}
 			fb, err := s.prompter.AskFeedback()
 			if err != nil {
-				fmt.Fprintf(stderr, "错误: 读取输入失败: %v\n", err)
+				fmt.Fprintf(stderr, i18n.T("cli.read_input_failed")+"\n", err)
 				return 1
 			}
 			s.feedback = fb
@@ -325,10 +381,10 @@ func (s *session) run() int {
 
 // generate 调用 LLM 生成（或重新生成）一条命令，并累计 Token。
 func (s *session) generate() (string, error) {
-	s.verbosef("→ POST %s/chat/completions model=%s", s.cfg.BaseURL, s.cfg.Model)
-	s.verbosef("→ request: %s", s.request)
+	s.verbosef(i18n.T("cli.vb_endpoint"), s.cfg.BaseURL, s.cfg.Model)
+	s.verbosef(i18n.T("cli.vb_request"), s.request)
 	if s.command != "" || s.feedback != "" {
-		s.verbosef("→ previous: %q feedback: %q", s.command, s.feedback)
+		s.verbosef(i18n.T("cli.vb_previous"), s.command, s.feedback)
 	}
 
 	sp := ui.NewSpinner(stdout, "Thinking")
@@ -336,7 +392,7 @@ func (s *session) generate() (string, error) {
 	cmdStr, u, err := s.client.GenerateCommand(context.Background(), s.request, s.command, s.feedback)
 	sp.Stop()
 
-	s.verbosef("← tokens: input=%d output=%d total=%d", u.PromptTokens, u.CompletionTokens, u.TotalTokens)
+	s.verbosef(i18n.T("cli.vb_tokens"), u.PromptTokens, u.CompletionTokens, u.TotalTokens)
 	s.countUsage(u)
 
 	if err != nil {
@@ -344,7 +400,7 @@ func (s *session) generate() (string, error) {
 		return "", err
 	}
 	if cmdStr == "" {
-		return "", errors.New("模型没有返回可执行的命令")
+		return "", errors.New(i18n.T("cli.no_command"))
 	}
 	return cmdStr, nil
 }
@@ -356,7 +412,7 @@ func (s *session) explain() error {
 	text, u, err := s.client.ExplainCommand(context.Background(), s.request, s.command)
 	sp.Stop()
 
-	s.verbosef("← explain tokens: input=%d output=%d", u.PromptTokens, u.CompletionTokens)
+	s.verbosef(i18n.T("cli.vb_explain"), u.PromptTokens, u.CompletionTokens)
 	s.countUsage(u)
 	if err != nil {
 		return err
@@ -372,7 +428,7 @@ func (s *session) countUsage(u llm.Usage) {
 	s.pendingIn += u.PromptTokens
 	s.pendingOut += u.CompletionTokens
 	s.pendingCalls++
-	s.verbosef("· 累计: LLM 调用 %d 次, input=%d output=%d", s.pendingCalls, s.totalIn, s.totalOut)
+	s.verbosef(i18n.T("cli.vb_cumulative"), s.pendingCalls, s.totalIn, s.totalOut)
 }
 
 // verbosef 仅在 verbose 模式下输出诊断信息（不包含任何密钥）。
@@ -400,10 +456,10 @@ func (s *session) execute() int {
 	}
 	s.append(rec)
 	if res.ExitCode != 0 {
-		fmt.Fprintf(stderr, "(退出码 %d)\n", res.ExitCode)
+		fmt.Fprintf(stderr, i18n.T("cli.exit_code")+"\n", res.ExitCode)
 	}
-	s.verbosef("· 耗时 %s, 退出码 %d", res.Duration.Round(time.Millisecond), res.ExitCode)
-	s.verbosef("· 历史目录: %s", s.store.Dir)
+	s.verbosef(i18n.T("cli.vb_duration"), res.Duration.Round(time.Millisecond), res.ExitCode)
+	s.verbosef(i18n.T("cli.vb_history"), s.store.Dir)
 	s.done()
 	return res.ExitCode
 }
@@ -434,10 +490,10 @@ func (s *session) buildRecord(choice history.Choice, res *executor.Result, errMs
 // append 写入一条历史记录。失败只提示、不中断主流程。
 func (s *session) append(rec history.Record) {
 	if err := s.store.Append(rec); err != nil {
-		fmt.Fprintf(stderr, "警告: %v\n", err)
+		fmt.Fprintf(stderr, i18n.T("cli.warn")+"\n", err)
 		return
 	}
-	s.verbosef("· 已记录 history/%s.jsonl (choice=%s)", rec.Timestamp.Format("2006-01-02"), rec.Choice)
+	s.verbosef(i18n.T("cli.vb_recorded"), rec.Timestamp.Format("2006-01-02"), rec.Choice)
 }
 
 // done 打印本次会话的 Token 汇总。
@@ -446,40 +502,9 @@ func (s *session) done() {
 }
 
 func printTokenLine(in, out int) {
-	fmt.Fprintf(stdout, "Token: %d/%d\n", in, out)
+	fmt.Fprintf(stdout, i18n.T("cli.token"), in, out)
 }
 
 func printUsage(w io.Writer) {
-	fmt.Fprint(w, `command-ai - 用自然语言生成并执行 shell 命令
-
-用法:
-  command-ai "需求描述"                  生成命令，确认后执行
-  command-ai base-url <url>              设置 LLM Base URL
-  command-ai api-key <key>               设置 API Key
-  command-ai model <name>                设置模型名称
-  command-ai verbose                     切换详细输出模式
-  command-ai usage [周期]                查看 Token 用量
-  command-ai config                      查看当前配置
-  command-ai help                        显示帮助
-  command-ai version                     显示版本
-
-统计周期:
-  today | this-week | this-month | this-year | all   （默认 today）
-
-交互说明:
-  生成命令后会提示 Allow[y/N/e/r]
-    y  执行该命令
-    n  取消（直接回车等同于 n）
-    e  用与需求相同的语言解释该命令，然后再次询问
-    r  重新生成命令（可附加一段反馈）
-
-示例:
-  command-ai "帮我列出当前目录下的文件"
-  command-ai "帮我查看 ~ 目录下的文件"
-  command-ai usage this-month
-
-环境变量:
-  COMMAND_AI_HOME    覆盖配置与历史数据的存放根目录
-  COMMAND_AI_CONFIG  仅覆盖配置文件路径
-`)
+	fmt.Fprint(w, i18n.T("cli.help"))
 }
