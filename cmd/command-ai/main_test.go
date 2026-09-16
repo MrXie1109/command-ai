@@ -14,9 +14,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/command-ai/command-ai/internal/history"
-	"github.com/command-ai/command-ai/internal/i18n"
-	"github.com/command-ai/command-ai/internal/prompt"
+	"github.com/MrXie1109/command-ai/internal/history"
+	"github.com/MrXie1109/command-ai/internal/i18n"
+	"github.com/MrXie1109/command-ai/internal/prompt"
 )
 
 // fakeLLM 是一个可编程的假 LLM 服务。

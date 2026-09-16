@@ -11,7 +11,7 @@ import (
 
 	"gopkg.in/yaml.v3"
 
-	"github.com/command-ai/command-ai/internal/i18n"
+	"github.com/MrXie1109/command-ai/internal/i18n"
 )
 
 // 配置项的默认值。

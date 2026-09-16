@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/command-ai/command-ai/internal/i18n"
+	"github.com/MrXie1109/command-ai/internal/i18n"
 )
 
 // DefaultTimeout 是命令执行的默认超时时间，0 表示不限制。

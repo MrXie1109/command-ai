@@ -6,8 +6,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/command-ai/command-ai/internal/history"
-	"github.com/command-ai/command-ai/internal/i18n"
+	"github.com/MrXie1109/command-ai/internal/history"
+	"github.com/MrXie1109/command-ai/internal/i18n"
 )
 
 func TestParsePeriod(t *testing.T) {

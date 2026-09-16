@@ -13,7 +13,7 @@ import (
 
 	"golang.org/x/term"
 
-	"github.com/command-ai/command-ai/internal/i18n"
+	"github.com/MrXie1109/command-ai/internal/i18n"
 )
 
 // Spinner 是一个单行旋转动画。

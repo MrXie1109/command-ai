@@ -10,14 +10,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/command-ai/command-ai/internal/config"
-	"github.com/command-ai/command-ai/internal/executor"
-	"github.com/command-ai/command-ai/internal/history"
-	"github.com/command-ai/command-ai/internal/i18n"
-	"github.com/command-ai/command-ai/internal/llm"
-	"github.com/command-ai/command-ai/internal/prompt"
-	"github.com/command-ai/command-ai/internal/ui"
-	"github.com/command-ai/command-ai/internal/usage"
+	"github.com/MrXie1109/command-ai/internal/config"
+	"github.com/MrXie1109/command-ai/internal/executor"
+	"github.com/MrXie1109/command-ai/internal/history"
+	"github.com/MrXie1109/command-ai/internal/i18n"
+	"github.com/MrXie1109/command-ai/internal/llm"
+	"github.com/MrXie1109/command-ai/internal/prompt"
+	"github.com/MrXie1109/command-ai/internal/ui"
+	"github.com/MrXie1109/command-ai/internal/usage"
 )
 
 // version 是当前版本号，构建时可通过 -ldflags 覆盖。

@@ -1,4 +1,4 @@
-module github.com/command-ai/command-ai
+module github.com/MrXie1109/command-ai
 
 go 1.18
 

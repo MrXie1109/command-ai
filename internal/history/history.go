@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/command-ai/command-ai/internal/i18n"
+	"github.com/MrXie1109/command-ai/internal/i18n"
 )
 
 // Choice 是用户在某次交互中的最终选择。
