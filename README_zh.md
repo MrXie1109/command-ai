@@ -368,6 +368,27 @@ make fmt        # 格式化全部 Go 源码
 make build      # 构建当前平台二进制到 dist/
 make dist       # 交叉编译全部六个平台
 make clean      # 清理 dist/ 与 coverage.out
+make release TAG=v1.2.0   # 打 tag 并推送
+```
+
+## 发布
+
+发布分两步：
+
+```bash
+# 1. 修改 cmd/command-ai/main.go 的版本号、更新 CHANGELOG、提交
+# 2. 打 tag 并推送
+make release TAG=v1.2.0
+
+# 3. 构建产物并上传到 GitHub Release
+make dist
+gh release create v1.2.0 \
+  --title "command-ai v1.2.0" --notes-file CHANGELOG_zh.md \
+  dist/command-ai-*
+```
+
+已发布版本见[发布页面](https://github.com/MrXie1109/command-ai/releases)，
+每个版本都附带 Linux、Windows、macOS 的 amd64 与 arm64 二进制，以及 `SHA256SUMS` 校验文件。
 ```
 
 也可以直接用底层命令：

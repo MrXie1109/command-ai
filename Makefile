@@ -35,7 +35,7 @@ BINDIR ?= $(PREFIX)/bin
 GO_TEST_FLAGS ?=
 
 .DEFAULT_GOAL := help
-.PHONY: help build dist test cover vet fmt fmt-check check tidy install uninstall clean run version
+.PHONY: help build dist test cover vet fmt fmt-check check tidy install uninstall clean run version release
 
 help: ## 显示本帮助
 	@echo "command-ai $(VERSION)"
@@ -99,6 +99,14 @@ install: build ## 构建并安装到 PREFIX/bin(默认 ~/.local/bin)
 uninstall: ## 从 PREFIX/bin 卸载
 	rm -f $(BINDIR)/$(BINARY)
 	@echo "已卸载 $(BINDIR)/$(BINARY)"
+
+release: ## 打 tag 并推送(需 TAG=vX.Y.Z，例如 make release TAG=v1.2.0)
+	@test -n "$(TAG)" || { echo "用法: make release TAG=vX.Y.Z"; exit 1; }
+	@test -z "$$(git status --porcelain)" || { echo "工作区不干净，请先提交"; exit 1; }
+	git tag -a $(TAG) -m "command-ai $(TAG)"
+	git push origin main
+	git push origin $(TAG)
+	@echo "已推送 $(TAG)：请在 GitHub 上创建 Release 并上传 make dist 的产物"
 
 clean: ## 删除构建产物与覆盖率文件
 	rm -rf $(DIST) coverage.out

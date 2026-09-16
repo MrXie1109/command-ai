@@ -380,6 +380,28 @@ make fmt        # format all Go sources
 make build      # host binary into dist/
 make dist       # all six cross-compiled binaries
 make clean      # remove dist/ and coverage.out
+make release TAG=v1.2.0   # tag and push a release
+```
+
+## Releases
+
+Tagging and publishing is a two-step process:
+
+```bash
+# 1. bump the version in cmd/command-ai/main.go, update the changelogs, commit
+# 2. tag and push
+make release TAG=v1.2.0
+
+# 3. build the artifacts and attach them to a GitHub Release
+make dist
+gh release create v1.2.0 \
+  --title "command-ai v1.2.0" --notes-file CHANGELOG.md \
+  dist/command-ai-*
+```
+
+Released versions are listed on
+[the releases page](https://github.com/MrXie1109/command-ai/releases); each one ships
+binaries for Linux, Windows, and macOS on both amd64 and arm64, plus a `SHA256SUMS` file.
 ```
 
 The underlying commands, if you prefer them directly:
