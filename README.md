@@ -45,12 +45,24 @@ You can pin it with `command-ai lang zh|en|auto`. See [Interface language](#inte
 Requires Go 1.18 or newer.
 
 ```bash
-git clone <repo-url> command-ai
+git clone https://github.com/MrXie1109/command-ai
 cd command-ai
-go build -o command-ai ./cmd/command-ai
+make build          # -> dist/command-ai
 ```
 
-Cross-compile a standalone binary:
+Or without `make`:
+
+```bash
+go build -o dist/command-ai ./cmd/command-ai
+```
+
+Cross-compile all six targets at once:
+
+```bash
+make dist           # -> dist/command-ai-{linux,windows,darwin}-{amd64,arm64}[.exe]
+```
+
+Equivalently, by hand:
 
 ```bash
 # Linux
@@ -61,10 +73,23 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o dist/command-ai-windows-amd6
 CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -o dist/command-ai-darwin-arm64     ./cmd/command-ai
 ```
 
+`make` reads the version from `cmd/command-ai/main.go`, so `make build` and `make dist`
+always stamp the binary with the value in the source. Override it when needed with
+`make dist VERSION=2.0.0`.
+
 ### Install onto your PATH
 
 ```bash
-install -m 0755 command-ai ~/.local/bin/command-ai
+make install        # -> ~/.local/bin/command-ai
+```
+
+`PREFIX` defaults to `~/.local`, so `make install PREFIX=/usr/local` installs elsewhere.
+There is a matching `make uninstall`.
+
+Or by hand:
+
+```bash
+install -m 0755 dist/command-ai ~/.local/bin/command-ai
 ```
 
 ## Quick start
@@ -334,6 +359,7 @@ command-ai/
 │   ├── ui/                  # spinner and the Allow prompt
 │   └── usage/               # usage statistics
 ├── go.mod
+├── Makefile                 # build, test, cross-compile, install
 ├── README.md
 ├── README_zh.md
 ├── CHANGELOG.md
@@ -344,19 +370,29 @@ command-ai/
 
 ## Development
 
+Every task is available through `make`; run `make` with no arguments to list them.
+
 ```bash
-# Run all tests
-go test ./...
+make check      # gofmt check + go vet + tests (run this before committing)
+make test       # tests only
+make cover      # tests plus a total coverage figure
+make fmt        # format all Go sources
+make build      # host binary into dist/
+make dist       # all six cross-compiled binaries
+make clean      # remove dist/ and coverage.out
+```
 
-# Format
-gofmt -l -w .
+The underlying commands, if you prefer them directly:
 
-# Static analysis
-go vet ./...
+```bash
+go test ./...       # tests
+gofmt -l -w .       # format
+go vet ./...        # static analysis
 ```
 
 > With gccgo rather than the official Go toolchain, `go vet` and cross-compilation may be
-> unavailable; in that case run the tests with `go test -vet=off ./...`.
+> unavailable; in that case run the tests with `go test -vet=off ./...`, or
+> `make test GO_TEST_FLAGS=-vet=off`.
 
 ## Security notes
 

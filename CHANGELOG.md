@@ -5,7 +5,7 @@
 This project follows [Semantic Versioning](https://semver.org/) and the
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) conventions.
 
-## [1.1.1] - 2024-05-17
+## [1.1.1] - 2026-09-16
 
 ### Fixed
 
@@ -21,7 +21,7 @@ This project follows [Semantic Versioning](https://semver.org/) and the
   This is the guard that the earlier key-completeness test could not provide: that test
   only checked strings already routed through `i18n.T`, not strings that never were.
 
-## [1.1.0] - 2024-05-17
+## [1.1.0] - 2026-09-16
 
 ### Added
 
@@ -54,7 +54,7 @@ This project follows [Semantic Versioning](https://semver.org/) and the
 - Error messages from the internal packages (config, history, llm, executor) are localised
   as well
 
-## [1.0.0] - 2024-05-17
+## [1.0.0] - 2026-09-16
 
 First stable release, covering every milestone (M1–M6) of the project specification.
 

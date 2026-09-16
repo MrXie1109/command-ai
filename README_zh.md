@@ -42,12 +42,24 @@ Token: 128/12
 需要 Go 1.18 或更高版本。
 
 ```bash
-git clone <repo-url> command-ai
+git clone https://github.com/MrXie1109/command-ai
 cd command-ai
-go build -o command-ai ./cmd/command-ai
+make build          # 生成 dist/command-ai
 ```
 
-交叉编译单二进制文件：
+不用 `make` 也可以：
+
+```bash
+go build -o dist/command-ai ./cmd/command-ai
+```
+
+一次编译全部六个平台：
+
+```bash
+make dist           # 生成 dist/command-ai-{linux,windows,darwin}-{amd64,arm64}[.exe]
+```
+
+等价的手工命令：
 
 ```bash
 # Linux
@@ -58,10 +70,22 @@ CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o dist/command-ai-windows-amd6
 CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -o dist/command-ai-darwin-arm64     ./cmd/command-ai
 ```
 
+版本号由 `make` 从 `cmd/command-ai/main.go` 读取，因此 `make build` 与 `make dist`
+产出的二进制始终携带源码中的版本号；需要时可用 `make dist VERSION=2.0.0` 覆盖。
+
 ### 安装到 PATH
 
 ```bash
-install -m 0755 command-ai ~/.local/bin/command-ai
+make install        # 安装到 ~/.local/bin/command-ai
+```
+
+`PREFIX` 默认为 `~/.local`，`make install PREFIX=/usr/local` 可装到别处，
+对应的卸载命令是 `make uninstall`。
+
+手工安装：
+
+```bash
+install -m 0755 dist/command-ai ~/.local/bin/command-ai
 ```
 
 ## 快速开始
@@ -323,6 +347,7 @@ command-ai/
 │   ├── ui/                  # spin 动画与 Allow 提示
 │   └── usage/               # 用量统计
 ├── go.mod
+├── Makefile                 # 构建、测试、交叉编译、安装
 ├── README.md
 ├── README_zh.md
 ├── CHANGELOG.md
@@ -333,19 +358,28 @@ command-ai/
 
 ## 开发
 
+所有任务都可通过 `make` 完成，直接执行 `make` 会列出全部目标。
+
 ```bash
-# 运行全部测试
-go test ./...
+make check      # gofmt 检查 + go vet + 测试（提交前跑这个）
+make test       # 只跑测试
+make cover      # 跑测试并输出总覆盖率
+make fmt        # 格式化全部 Go 源码
+make build      # 构建当前平台二进制到 dist/
+make dist       # 交叉编译全部六个平台
+make clean      # 清理 dist/ 与 coverage.out
+```
 
-# 格式化
-gofmt -l -w .
+也可以直接用底层命令：
 
-# 静态检查
-go vet ./...
+```bash
+go test ./...       # 测试
+gofmt -l -w .       # 格式化
+go vet ./...        # 静态检查
 ```
 
 > 若使用 gccgo 而非官方 Go 工具链，`go vet` 与跨平台编译可能不可用，
-> 此时请用 `go test -vet=off ./...` 运行测试。
+> 此时请用 `go test -vet=off ./...`，或 `make test GO_TEST_FLAGS=-vet=off`。
 
 ## 安全说明
 
