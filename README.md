@@ -1,77 +1,48 @@
 # command-ai
 
-用自然语言驱动 AI 生成并执行 shell 命令的 CLI 工具。
+[English](README.md) | [简体中文](README_zh.md)
 
-你只需要用日常语言描述需求，`command-ai` 会调用 LLM 生成对应的命令，展示给你确认，然后执行。
+Generate and run shell commands from natural language.
+
+Describe what you want in plain language; `command-ai` asks an LLM to produce the
+corresponding command, shows it to you for confirmation, and then runs it.
 
 ```bash
-$ command-ai "帮我列出当前目录下的文件"
+$ command-ai "list the files in the current directory"
 Thinking -
 Command: ls
 Allow[y/N/e/r] y
-公共  模板  视频  图片  文档  下载  音乐  桌面
+Documents  Downloads  Music  Pictures  Public  Templates  Videos
 Token: 128/12
-```
-
-界面语言会自动跟随 `LANG` / `LC_ALL` / `LC_MESSAGES`：`zh*` 显示中文，其余（含 `C`、`POSIX`、
-未设置）显示英文。也可以用 `command-ai lang zh|en|auto` 固定语言。详见[界面语言](#界面语言)。
-
-> [!WARNING]
-> 本项目**不提供任何安全防护**：没有沙箱、没有白名单、没有危险命令拦截。
-> 它假设你清楚自己在做什么，并自行承担执行命令的后果。
-> `Allow[y/N/e/r]` 确认环节是唯一的兜底，请务必看清命令再按 `y`。
-
----
-
-## English
-
-`command-ai` turns a natural-language request into a shell command, shows it to you for
-confirmation, and then runs it. It ships as a single Go binary with no runtime dependencies.
-
-> [!WARNING]
-> This tool provides **no safety net**: no sandbox, no allowlist, no dangerous-command
-> filtering. It assumes you understand the risk of running commands. The
-> `Allow[y/N/e/r]` confirmation is the only safeguard — always read the command before
-> pressing `y`.
-
-```bash
-# Build
-go build -o command-ai ./cmd/command-ai
-
-# Configure (any OpenAI Chat Completions compatible provider)
-command-ai base-url https://api.deepseek.com
-command-ai api-key sk-xxxxxxxxxxxxxxxxxxxx
-command-ai model deepseek-flash
-
-# Use
-command-ai "list the files in the current directory"
 ```
 
 The interface language follows `LANG` / `LC_ALL` / `LC_MESSAGES`: anything starting with
 `zh` selects Chinese, everything else (including `C`, `POSIX`, and unset) selects English.
-Pin it with `command-ai lang en` (or `zh`, or `auto`). Explanations are always written in
-the language of your request, not the interface language.
+You can pin it with `command-ai lang zh|en|auto`. See [Interface language](#interface-language).
 
-Run `LANG=C command-ai help` for the full English help. The Chinese sections below document
-every command in detail.
+> [!WARNING]
+> This tool provides **no safety net**: no sandbox, no allowlist, no dangerous-command
+> filtering. It assumes you understand the risk of running commands and accept the
+> consequences. The `Allow[y/N/e/r]` confirmation is the only safeguard — always read the
+> command before pressing `y`.
 
 ---
 
-## 特性
+## Features
 
-- 自然语言驱动，减少记忆命令语法、参数与平台差异的负担
-- 单二进制分发，无运行时依赖
-- 用户自备 LLM：兼容 OpenAI Chat Completions 协议的服务商均可
-- 多轮交互：确认 / 取消 / 解释 / 重新生成
-- 界面中英双语，自动跟随系统语言环境
-- 轻量配置（YAML）与历史（JSONL），文件权限严格
-- 按时间维度统计 Token 消耗
+- Natural-language driven: no need to memorise command syntax, flags, or platform quirks
+- Ships as a single binary with no runtime dependencies
+- Bring your own LLM: any provider speaking the OpenAI Chat Completions protocol
+- Multi-turn interaction: confirm / cancel / explain / regenerate
+- Bilingual interface (English and Chinese) that follows your system locale
+- Lightweight config (YAML) and history (JSONL) with strict file permissions
+- Token usage statistics by time period
 
-## 安装
+## Installation
 
-### 从源码构建
+### Build from source
 
-需要 Go 1.18 或更高版本。
+Requires Go 1.18 or newer.
 
 ```bash
 git clone <repo-url> command-ai
@@ -79,165 +50,166 @@ cd command-ai
 go build -o command-ai ./cmd/command-ai
 ```
 
-交叉编译单二进制文件：
+Cross-compile a standalone binary:
 
 ```bash
 # Linux
-CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -o dist/command-ai-linux-amd64     ./cmd/command-ai
+CGO_ENABLED=0 GOOS=linux   GOARCH=amd64 go build -o dist/command-ai-linux-amd64      ./cmd/command-ai
 # Windows
 CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build -o dist/command-ai-windows-amd64.exe ./cmd/command-ai
 # macOS (Apple Silicon)
-CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -o dist/command-ai-darwin-arm64    ./cmd/command-ai
+CGO_ENABLED=0 GOOS=darwin  GOARCH=arm64 go build -o dist/command-ai-darwin-arm64     ./cmd/command-ai
 ```
 
-### 安装到 PATH
+### Install onto your PATH
 
 ```bash
 install -m 0755 command-ai ~/.local/bin/command-ai
 ```
 
-## 快速开始
+## Quick start
 
 ```bash
-# 1. 配置服务商（以 DeepSeek 为例）
+# 1. Configure a provider (DeepSeek in this example)
 command-ai base-url https://api.deepseek.com
 command-ai api-key sk-xxxxxxxxxxxxxxxxxxxx
 command-ai model deepseek-flash
 
-# 2. 确认配置（API Key 会脱敏显示）
+# 2. Verify the configuration (the API key is masked)
 command-ai config
 
-# 3. 开始使用
-command-ai "查看当前目录下最大的 5 个文件"
+# 3. Start using it
+command-ai "show the 5 largest files in the current directory"
 ```
 
-## 命令接口
+## Commands
 
-### 执行类
+### Execution
 
 ```bash
-command-ai "需求描述"
+command-ai "your request"
 ```
 
-流程：
+The flow is:
 
-1. 显示 `Thinking -` 旋转动画
-2. 调用 LLM 生成命令
-3. 显示 `Command: <生成的命令>`
-4. 提示 `Allow[y/N/e/r]`
-5. 执行命令并输出结果
-6. 显示 `Token: INPUT/OUTPUT`
+1. Show the `Thinking -` spinner
+2. Call the LLM to generate a command
+3. Show `Command: <generated command>`
+4. Prompt with `Allow[y/N/e/r]`
+5. Run the command and print its output
+6. Show `Token: INPUT/OUTPUT`
 
-需求描述可以不加引号，此时全部参数会被拼成一条需求：
+Quotes are optional; without them all arguments are joined into a single request:
 
 ```bash
-command-ai 帮我列出家目录下的文件
+command-ai list the files in my home directory
 ```
 
-### 配置类
+### Configuration
 
-| 命令 | 说明 |
-|------|------|
-| `command-ai base-url <url>` | 设置 LLM 服务商 Base URL |
-| `command-ai api-key <key>` | 设置 API Key |
-| `command-ai model <name>` | 设置模型名称 |
-| `command-ai lang [zh\|en\|auto]` | 查看或设置界面语言 |
-| `command-ai verbose` | 切换详细输出模式 |
-| `command-ai config` | 查看当前配置（Key 脱敏） |
+| Command | Description |
+|---------|-------------|
+| `command-ai base-url <url>` | Set the LLM base URL |
+| `command-ai api-key <key>` | Set the API key |
+| `command-ai model <name>` | Set the model name |
+| `command-ai lang [zh\|en\|auto]` | Show or set the interface language |
+| `command-ai verbose` | Toggle verbose output |
+| `command-ai config` | Show the current configuration (key masked) |
 
-### 信息类
+### Informational
 
-| 命令 | 说明 |
-|------|------|
-| `command-ai help` | 显示帮助信息 |
-| `command-ai version` | 显示版本号 |
+| Command | Description |
+|---------|-------------|
+| `command-ai help` | Show help |
+| `command-ai version` | Show the version |
 
-### 统计类
+### Usage statistics
 
 ```bash
 command-ai usage [today|this-week|this-month|this-year|all]
 ```
 
-| 参数 | 说明 |
-|------|------|
-| `today` | 今日用量（默认） |
-| `this-week` | 本周用量（周一为一周开始） |
-| `this-month` | 本月用量 |
-| `this-year` | 本年用量 |
-| `all` | 全部用量 |
+| Period | Description |
+|--------|-------------|
+| `today` | Today's usage (default) |
+| `this-week` | This week's usage (weeks start on Monday) |
+| `this-month` | This month's usage |
+| `this-year` | This year's usage |
+| `all` | All-time usage |
 
-输出示例：
+Example output:
 
 ```
 $ command-ai usage this-month
-本月用量（2024-05-01 ~ 2024-05-17）
-  请求次数:     42
-  INPUT Token:  15320
-  OUTPUT Token: 2871
-  合计 Token:   18191
-  实际执行:     31
+this month usage (2024-05-01 to 2024-05-17)
+  Requests:      42
+  INPUT tokens:  15320
+  OUTPUT tokens: 2871
+  Total tokens:  18191
+  Executed:      31
 ```
 
-## 交互说明
+## Interaction
 
-生成命令后，工具会提示 `Allow[y/N/e/r]`：
+After generating a command, the tool prompts with `Allow[y/N/e/r]`:
 
-| 输入 | 行为 |
-|------|------|
-| `y` | 执行该命令 |
-| `n` | 取消（**直接回车等同于 `n`**） |
-| `e` | 用与需求相同的语言解释该命令，然后再次询问同一个命令 |
-| `r` | 重新生成命令（可附加一段反馈），然后再次询问 |
+| Input | Behaviour |
+|-------|-----------|
+| `y` | Run the command |
+| `n` | Cancel (**pressing Enter alone means `n`**) |
+| `e` | Explain the command in the language of your request, then ask about the same command again |
+| `r` | Regenerate the command (you may add a feedback message), then ask again |
 
-其他输入会被拒绝并重新提示。完整流程：
+Any other input is rejected and the prompt is repeated. The full flow:
 
 ```
-[输入] → Thinking → 生成命令 → Allow?
-                                  ├─ y → 执行 → 输出 → Token
-                                  ├─ n → 取消 → Token
-                                  ├─ e → 解释 → Allow?
-                                  └─ r → 重新生成 → Allow?
+[input] → Thinking → generate command → Allow?
+                                          ├─ y → run → output → Token
+                                          ├─ n → cancel → Token
+                                          ├─ e → explain → Allow?
+                                          └─ r → regenerate → Allow?
 ```
 
-一个使用 `e` 与 `r` 的例子：
+An example using `e` and `r`:
 
 ```bash
-$ command-ai "帮我列出~目录下的文件"
+$ command-ai "list the files in my home directory"
 Thinking -
 Command: ls $HOME
 Allow[y/N/e/r] e
-这个命令会列出当前用户的家目录下的所有文件。
+This command lists everything in the current user's home directory.
 Allow[y/N/e/r] r
-Feedback (可选，回车跳过): 用长格式
+Feedback (optional, press Enter to skip): use the long format
 Command: ls -l $HOME
 Allow[y/N/e/r] y
 ...
 Token: 312/48
 ```
 
-> 提示词中已明确告知模型它**不在 shell 中**，无法使用 `~`、别名等 shell 语法糖，
-> 因此它会输出 `ls $HOME` 这类可直接执行的形式。
+> The system prompt tells the model explicitly that it is **not inside a shell** and cannot
+> use shell sugar such as `~` or aliases, so it emits directly executable forms like
+> `ls $HOME`.
 
-## 界面语言
+## Interface language
 
-界面提供**中文**与**英文**两种语言，不会出现其他语言。
+The interface is available in **English** and **Chinese** only.
 
-### 自动判定
+### Automatic detection
 
-启动时按 POSIX 优先级读取语言环境变量：
+At startup the locale environment variables are read in POSIX priority order:
 
 ```
 LC_ALL  >  LC_MESSAGES  >  LANG
 ```
 
-取值形如 `zh_CN.UTF-8`、`en_US.UTF-8@euro`、`C`、`POSIX`：
+Values look like `zh_CN.UTF-8`, `en_US.UTF-8@euro`, `C`, or `POSIX`:
 
-| 取值 | 界面语言 |
-|------|----------|
-| 以 `zh` 开头（`zh`、`zh_CN`、`zh-TW`、`zh_Hans`…） | 中文 |
-| `C`、`POSIX` | 英文（C locale 惯例） |
-| 其他任何语言（`en_US`、`fr_FR`、`ja_JP`…） | 英文 |
-| 未设置 | 英文 |
+| Value | Interface language |
+|-------|--------------------|
+| Starts with `zh` (`zh`, `zh_CN`, `zh-TW`, `zh_Hans`, …) | Chinese |
+| `C`, `POSIX` | English (the C locale convention) |
+| Any other language (`en_US`, `fr_FR`, `ja_JP`, …) | English |
+| Unset | English |
 
 ```bash
 $ LANG=C command-ai usage
@@ -257,37 +229,41 @@ $ LANG=zh_CN.UTF-8 command-ai usage
   实际执行:     3
 ```
 
-### 手动指定
+### Setting it manually
 
-如果 `LANG` 不可靠（例如 cron、容器里往往是 `C`），可以在配置中固定语言：
+If `LANG` is unreliable (cron jobs and containers often report `C`), pin the language in
+the configuration:
 
 ```bash
-command-ai lang zh     # 固定中文
-command-ai lang en     # 固定英文
-command-ai lang auto   # 恢复跟随环境变量
-command-ai lang        # 查看当前语言及来源
+command-ai lang zh     # always Chinese
+command-ai lang en     # always English
+command-ai lang auto   # follow the environment again
+command-ai lang        # show the current language and where it came from
 ```
 
-配置里的显式设置**优先于**环境变量，这样即使 `LANG=C` 也能保持中文。
-写入 `config.yaml` 的 `language` 字段：
+An explicit setting in the config takes precedence over the environment, so Chinese is
+preserved even when `LANG=C`. It is stored in the `language` field of `config.yaml`:
 
 ```yaml
 language: auto   # auto | zh | en
 ```
 
-### 与「解释」语言的区别
+### Relationship to explanation language
 
-界面语言只影响提示、帮助与报错文案。`e` 分支的命令解释始终使用**与你的需求相同的语言**，
-与界面语言无关：用英文提问就得到英文解释，用中文提问就得到中文解释。
+The interface language only affects prompts, help text, and error messages. The `e` branch
+always explains a command in **the language of your request**, independently of the
+interface language: an English request gets an English explanation, a Chinese request gets
+a Chinese one.
 
-> `Command:`、`Token:`、`Thinking`、`Allow[y/N/e/r]` 是项目书规定的固定输出格式，
-> 不随语言变化。
+> `Command:`, `Token:`, `Thinking`, and `Allow[y/N/e/r]` are fixed output formats required
+> by the project specification and never change with the language.
 
-## 配置与数据
+## Configuration and data
 
-### 配置文件
+### Config file
 
-默认路径：`$XDG_CONFIG_HOME/command-ai/config.yaml`（未设置时为 `~/.config/command-ai/config.yaml`）。
+Default path: `$XDG_CONFIG_HOME/command-ai/config.yaml`, or
+`~/.config/command-ai/config.yaml` when `XDG_CONFIG_HOME` is unset.
 
 ```yaml
 base_url: https://api.deepseek.com
@@ -297,20 +273,21 @@ language: auto   # auto | zh | en
 verbose: false
 ```
 
-- 文件权限 `0600`，目录权限 `0700`（Windows 下由系统 ACL 等效保护）
-- 写入采用「临时文件 + 原子改名」，避免中断导致配置损坏
-- 建议始终通过 `command-ai` 子命令修改，而不是手工编辑
+- File mode `0600`, directory mode `0700` (equivalent ACL protection on Windows)
+- Written via a temporary file plus an atomic rename, so an interrupted write cannot
+  corrupt the configuration
+- Prefer changing it through the `command-ai` subcommands rather than editing by hand
 
-### 历史记录
+### History
 
-默认路径：`~/.local/share/command-ai/history/YYYY-MM-DD.jsonl`。
+Default path: `~/.local/share/command-ai/history/YYYY-MM-DD.jsonl`.
 
-每行一条 JSON 记录：
+One JSON record per line:
 
 ```json
 {
   "timestamp": "2024-05-17T10:30:00+08:00",
-  "input": "帮我列出当前目录下的文件",
+  "input": "list the files in the current directory",
   "command": "ls",
   "choice": "y",
   "output": "a.txt\nb.txt\n",
@@ -322,75 +299,81 @@ verbose: false
 }
 ```
 
-`input_tokens` / `output_tokens` / `llm_calls` 记录的是**自上一条记录以来**这一步的用量，
-而不是整个会话的累计值。这样把所有记录相加就等于真实总量，使用 `e`（解释）或
-`r`（重新生成）时也不会重复计数。“解释”不单独成一条记录，其消耗会并入随后的那条记录。
+`input_tokens`, `output_tokens`, and `llm_calls` describe the usage of **that step only**,
+measured since the previous record, rather than a running session total. Summing all records
+therefore yields the true total and nothing is double-counted when you use `e` (explain) or
+`r` (regenerate). Explanations do not produce a record of their own; their cost is folded
+into the record that follows.
 
-- 文件权限 `0600`，目录权限 `0700`
-- 网络或鉴权失败不写入历史
-- 损坏的行会被自动跳过，不影响统计
+- File mode `0600`, directory mode `0700`
+- Network and authentication failures are never written to history
+- Corrupt lines are skipped so they cannot break the statistics
 
-### 环境变量
+### Environment variables
 
-| 变量 | 说明 |
-|------|------|
-| `COMMAND_AI_HOME` | 覆盖配置与历史数据的存放根目录（便于测试与隔离） |
-| `COMMAND_AI_CONFIG` | 仅覆盖配置文件路径 |
-| `LANG` / `LC_ALL` / `LC_MESSAGES` | 选择界面语言，优先级 `LC_ALL` > `LC_MESSAGES` > `LANG` |
+| Variable | Description |
+|----------|-------------|
+| `COMMAND_AI_HOME` | Override the root directory for config and history (useful for isolation and testing) |
+| `COMMAND_AI_CONFIG` | Override only the config file path |
+| `LANG` / `LC_ALL` / `LC_MESSAGES` | Select the interface language; priority `LC_ALL` > `LC_MESSAGES` > `LANG` |
 
-## 项目结构
+## Project layout
 
 ```
 command-ai/
 ├── cmd/
 │   └── command-ai/
-│       ├── main.go          # CLI 入口、子命令分发、交互状态机
-│       └── main_test.go     # 端到端交互测试
+│       ├── main.go          # CLI entry point, subcommand dispatch, interaction state machine
+│       └── main_test.go     # end-to-end interaction tests
 ├── internal/
-│   ├── config/              # 配置读写（YAML，0600）
-│   ├── history/             # 历史记录（JSONL，按天分文件）
-│   ├── i18n/                # 中英文文案与语言环境判定
-│   ├── llm/                 # LLM 客户端与提示词
-│   ├── executor/            # 命令执行与输出捕获
-│   ├── ui/                  # spin 动画与 Allow 提示
-│   └── usage/               # 用量统计
+│   ├── config/              # config read/write (YAML, 0600)
+│   ├── history/             # history records (JSONL, one file per day)
+│   ├── i18n/                # English/Chinese strings and locale detection
+│   ├── llm/                 # LLM client and prompts
+│   ├── executor/            # command execution and output capture
+│   ├── ui/                  # spinner and the Allow prompt
+│   └── usage/               # usage statistics
 ├── go.mod
 ├── README.md
+├── README_zh.md
 ├── CHANGELOG.md
+├── CHANGELOG_zh.md
 ├── LICENSE
 └── .gitignore
 ```
 
-## 开发
+## Development
 
 ```bash
-# 运行全部测试
+# Run all tests
 go test ./...
 
-# 格式化
+# Format
 gofmt -l -w .
 
-# 静态检查
+# Static analysis
 go vet ./...
 ```
 
-> 若使用 gccgo 而非官方 Go 工具链，`go vet` 与跨平台编译可能不可用，
-> 此时请用 `go test -vet=off ./...` 运行测试。
+> With gccgo rather than the official Go toolchain, `go vet` and cross-compilation may be
+> unavailable; in that case run the tests with `go test -vet=off ./...`.
 
-## 安全说明
+## Security notes
 
-- API Key 从不明文输出到标准输出或日志（`command-ai config` 会脱敏）
-- `config.yaml` 与 `history/*.jsonl` 权限为 `0600`
-- `.gitignore` 已排除 `config.yaml` 与 `history/`，避免密钥与隐私入库
-- 本工具**不提供**沙箱、白名单或危险命令拦截
+- The API key is never printed in plaintext to stdout or written to logs
+  (`command-ai config` masks it)
+- `config.yaml` and `history/*.jsonl` use file mode `0600`
+- `.gitignore` excludes `config.yaml` and `history/` so secrets and private data never
+  reach the repository
+- The tool provides **no** sandbox, allowlist, or dangerous-command filtering
 
-## 非目标
+## Non-goals
 
-- ❌ 不提供命令安全防护、沙箱、白名单
-- ❌ 不内置 LLM 服务，不提供 API Key
-- ❌ 不替代 shell，不实现管道/重定向等 shell 特性
-- ❌ 不做跨会话的上下文记忆（仅单次请求内交互）
+- ❌ No command safety net, sandbox, or allowlist
+- ❌ No bundled LLM service and no API key
+- ❌ Not a shell replacement; does not implement pipes or redirection itself
+- ❌ No cross-session context memory (interaction is scoped to a single request)
 
-## 许可证
+## License
 
 [MIT](LICENSE)
