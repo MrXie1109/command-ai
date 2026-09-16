@@ -1,0 +1,52 @@
+# Changelog
+
+本项目遵循 [语义化版本](https://semver.org/lang/zh-CN/) 与
+[Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/) 约定。
+
+## [1.0.0] - 2024-05-17
+
+首个正式版本，实现项目书的全部里程碑（M1–M6）。
+
+### Added
+
+- **配置管理**
+  - `base-url` / `api-key` / `model` / `verbose` 四个配置子命令
+  - `config` 子命令查看当前配置（API Key 脱敏显示）
+  - `config.yaml` 以 `0600` 权限保存，目录 `0700`；写入采用「临时文件 + 原子改名」
+- **命令生成**
+  - 兼容 OpenAI Chat Completions 协议的 LLM 客户端（`/chat/completions`）
+  - 系统提示词明确声明「不在 shell 中」，禁止 `~`、别名等语法糖，只输出单行可执行命令
+  - 模型输出清洗：剥离 markdown 代码块、语言标记、`$` / `>` 提示符
+- **交互流程**
+  - `Thinking -` 旋转动画（非终端环境自动静默）
+  - `Allow[y/N/e/r]` 状态机：执行 / 取消 / 解释 / 重新生成
+  - 空输入默认取消；非法输入重新提示；EOF 安全退出
+  - 解释使用与用户相同的语言；解释后回到同一命令的确认提示
+  - 重新生成支持附加反馈，并把上一次的命令与反馈一并告知模型
+  - 重新生成次数上限（5 次）防止无限循环
+- **命令执行**
+  - 通过平台解释器执行（Unix `sh -c` / Windows `cmd /C`）
+  - 输出既实时回显终端，又捕获写入历史
+  - 子进程不继承 stdin，避免交互式命令挂起
+  - 命令退出码透传为进程退出码
+- **历史与统计**
+  - `history/YYYY-MM-DD.jsonl` 按天追加，文件 `0600`、目录 `0700`
+  - 记录时间戳、输入、命令、选择（y/n/e/r）、输出、退出码、Token、模型
+  - Token 与调用次数按「每步增量」记录，记录相加即真实总量，使用 `e`/`r` 不会重复计数
+  - 损坏的 JSON 行会被跳过，不影响统计
+  - `usage [today|this-week|this-month|this-year|all]` 统计请求次数与 INPUT/OUTPUT Token
+  - 网络或鉴权失败不写入历史
+- **信息类**
+  - `help` / `version` 子命令
+- **工程**
+  - 单二进制分发，无运行时依赖
+  - `.gitignore` 排除 `config.yaml` 与 `history/`，避免密钥与隐私泄露
+  - 测试覆盖全部 internal 包，并包含 CLI 端到端交互测试
+
+### Security
+
+- API Key 从不以明文出现在标准输出或日志中
+- 配置与历史文件权限在 Unix 下为 `0600`
+- 本工具不提供沙箱、白名单或危险命令拦截；执行前的 `Allow` 确认是唯一兜底
+
+[1.0.0]: https://github.com/command-ai/command-ai/releases/tag/v1.0.0

@@ -1,0 +1,18 @@
+# 构建产物
+/command-ai
+/command-ai.exe
+/dist/
+*.test
+coverage.out
+
+# 运行时生成：包含 API Key 与隐私，禁止入库
+# 必须锚定到仓库根，否则会连 internal/history/ 一起忽略。
+/config.yaml
+/history/
+*.jsonl
+
+# 编辑器 / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
